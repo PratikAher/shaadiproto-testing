@@ -1,0 +1,26 @@
+{
+  "name": "MeowUI Design System",
+  "short_name": "MeowUI",
+  "description": "Mobile-first design system showcase for Shaadi.com — components, icons, animations & screens in a phone-frame simulator.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#ffffff",
+  "theme_color": "#0AA4B8",
+  "categories": ["design", "developer tools"],
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-maskable.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ]
+}
