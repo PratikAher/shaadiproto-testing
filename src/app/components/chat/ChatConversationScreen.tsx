@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { cn } from '../../../utils/cn';
 import { VerificationFilledIcon } from '../icons';
 import GroupBackIcon from '../../../imports/Group';
@@ -15,6 +15,15 @@ import chatBackgroundImage from '../../../assets/chat/chat-background.png';
 // ═══════════════════════════════════════════════════════
 
 export type ConnectionStatus = 'accepted' | 'inbox_pending' | 'connect_sent' | 'not_connected';
+
+/** Shown until the user sends their first outgoing message in this thread. */
+function getConversationStarters(peerFirstName: string): string[] {
+  return [
+    `Hi ${peerFirstName}! I loved reading your profile and would enjoy chatting when you have a moment.`,
+    `Hey ${peerFirstName}, hope your week's going well! I'd love to hear more about your interests.`,
+    `Hello ${peerFirstName}! I think we'd have a lot to talk about — would you like to connect here?`,
+  ];
+}
 
 interface ChatConversationScreenProps {
   conversation: ChatConversation;
@@ -165,14 +174,24 @@ const ProfileInfoCard = ({
     setCardImageSrc(fullImageUrl || avatarUrl || '');
   }, [fullImageUrl, avatarUrl, profile.id]);
 
+  /** After each commit, mirrors `status` so the next render can tell true transitions from initial mount. */
+  const prevStatusRef = useRef<ConnectionStatus | undefined>(undefined);
+  useEffect(() => {
+    prevStatusRef.current = status;
+  }, [status]);
+
   // Animated bottom section content based on connection status
   const renderBottomSection = () => {
     switch (status) {
-      case 'accepted':
+      case 'accepted': {
+        // Opening a thread that is already accepted should feel static; only animate when
+        // transitioning into accepted from another state (e.g. user tapped Accept).
+        const showAcceptedEntrance =
+          prevStatusRef.current !== undefined && prevStatusRef.current !== 'accepted';
         return (
           <motion.div
             key="accepted"
-            initial={{ opacity: 0, height: 0 }}
+            initial={showAcceptedEntrance ? { opacity: 0, height: 0 } : false}
             animate={{ opacity: 1, height: 'auto' }}
             exit={{ opacity: 0, height: 0 }}
             transition={{ duration: 0.35, ease: [0.25, 0.1, 0.25, 1] }}
@@ -181,9 +200,13 @@ const ProfileInfoCard = ({
             <div className="flex flex-col items-center pt-[12px] relative w-full px-4 pb-4">
               <div className="absolute inset-0 border-t pointer-events-none" style={{ borderColor: '#dfe0e3' }} />
               <motion.p
-                initial={{ opacity: 0, y: 6 }}
+                initial={showAcceptedEntrance ? { opacity: 0, y: 6 } : false}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.15, duration: 0.3, ease: 'easeOut' }}
+                transition={
+                  showAcceptedEntrance
+                    ? { delay: 0.15, duration: 0.3, ease: 'easeOut' }
+                    : { duration: 0 }
+                }
                 style={{ fontSize: 14, lineHeight: '20px', color: '#41404d', textAlign: 'center' }}
               >
                 This is an Accepted Member.
@@ -191,6 +214,7 @@ const ProfileInfoCard = ({
             </div>
           </motion.div>
         );
+      }
 
       case 'not_connected':
         return (
@@ -348,7 +372,7 @@ const ProfileInfoCard = ({
 };
 
 // ═══════════════════════════════════════════════════════
-// Safety Notice — Figma: bg #fcf8e7, rounded-12px, shadow, p-8px
+// Safety Notice — bg #fcf8e7, rounded-12px, p-8px (scrolls with chat)
 // ═══════════════════════════════════════════════════════
 
 const SafetyNotice = () => (
@@ -356,7 +380,6 @@ const SafetyNotice = () => (
     className="relative rounded-xl overflow-hidden"
     style={{
       backgroundColor: '#fcf8e7',
-      boxShadow: '0px 6px 12px 0px rgba(0,0,0,0.08), 0px 2px 12px 0px rgba(0,0,0,0.06), 0px 3px 4px 0px rgba(0,0,0,0.06)',
       border: '1px solid #dfe0e3',
     }}
   >
@@ -584,6 +607,10 @@ export const ChatConversationScreen = ({ conversation, onBack, onFirstMessageSen
   const initialMessageCount = conversation.messages.length;
   const showSafetyBanner = messages.length <= initialMessageCount && messages.length <= 2;
 
+  const hasSentFromMe = messages.some((m) => m.senderId === 'me');
+  const showConversationStarters = localStatus !== 'connect_sent' && !hasSentFromMe;
+  const conversationStarters = useMemo(() => getConversationStarters(firstName), [firstName]);
+
   const { isKeyboardVisible } = useKeyboardVisible();
 
   // Scroll to bottom when keyboard opens so latest messages stay visible
@@ -685,9 +712,23 @@ export const ChatConversationScreen = ({ conversation, onBack, onFirstMessageSen
           backgroundPosition: 'top left',
         }}
       >
-        {/* Profile card + date */}
+        {/* Safety notice + profile card + date (all scroll together) */}
         <div className="flex flex-col gap-4 p-4">
+          <AnimatePresence>
+            {showSafetyBanner && (
+              <motion.div
+                key="safety-banner"
+                initial={false}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -8 }}
+                transition={{ duration: 0.35, ease: [0.25, 0.1, 0.25, 1] }}
+              >
+                <SafetyNotice />
+              </motion.div>
+            )}
+          </AnimatePresence>
           <ProfileInfoCard
+            key={conversation.id}
             conversation={conversation}
             status={localStatus}
             onConnect={() => {
@@ -728,28 +769,44 @@ export const ChatConversationScreen = ({ conversation, onBack, onFirstMessageSen
         </div>
       </div>
 
-      {/* -- Bottom area: Safety Notice overlaid above Input Bar -- */}
-      <div className="flex-none relative">
-        {/* Safety Notice — animated fade out */}
-        <AnimatePresence>
-          {showSafetyBanner && (
-            <motion.div
-              key="safety-banner"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: 20 }}
-              transition={{ duration: 0.35, ease: [0.25, 0.1, 0.25, 1] }}
-              className="absolute bottom-full left-0 right-0 px-4 pb-2 z-10"
-            >
-              <SafetyNotice />
-            </motion.div>
-          )}
-        </AnimatePresence>
-        {/* Input Bar */}
+      {/* -- Conversation starters + Input Bar -- */}
+      <div className="flex-none">
         <div
           className="bg-background border-t border-border/40"
           style={{ paddingBottom: isKeyboardVisible ? 0 : 32, transition: 'padding-bottom 0.1s ease' }}
         >
+          {showConversationStarters && (
+            <div
+              className="flex gap-2 overflow-x-auto scrollbar-hide px-3 pt-3 pb-1"
+              role="group"
+              aria-label="Conversation starters"
+            >
+              {conversationStarters.map((text) => (
+                <button
+                  key={text}
+                  type="button"
+                  onClick={() => {
+                    setInputText(text);
+                    requestAnimationFrame(() => {
+                      textareaRef.current?.focus();
+                      const ta = textareaRef.current;
+                      if (ta) {
+                        ta.setSelectionRange(text.length, text.length);
+                      }
+                    });
+                  }}
+                  className={cn(
+                    'shrink-0 cursor-pointer rounded-2xl border border-[#dfe0e3] bg-[#f9f9fb] text-left',
+                    'max-w-[min(260px,calc(100vw-40px))] transition-colors active:bg-neutral-100',
+                    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 focus-visible:ring-offset-2 focus-visible:ring-offset-background',
+                  )}
+                  style={{ fontSize: 13, lineHeight: '18px', color: '#41404d', padding: '10px 12px' }}
+                >
+                  <span className="line-clamp-3">{text}</span>
+                </button>
+              ))}
+            </div>
+          )}
           <div className="flex items-end gap-2 px-3 py-[13px]">
             {/* + button */}
             <button
