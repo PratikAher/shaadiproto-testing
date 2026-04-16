@@ -260,7 +260,7 @@ export function generateInboxRequests(count: number, seed: number): InboxRequest
       professionArea: (prof as any).area,
       countryGrewUp: chance(rng, 0.88) ? 'India' : pickOne(rng, ['United States', 'United Kingdom', 'United Arab Emirates'] as const),
       incomeUsdK: chance(rng, 0.12) ? intBetween(rng, 80, 300) : undefined,
-      manglik: pickOne(rng, ['no', 'yes', 'unknown'] as const),
+      manglik: pickOne(rng, ['manglik', 'angshik_manglik', 'non_manglik', 'dont_know'] as const),
     };
 
     out.push({

@@ -27,7 +27,7 @@ import {
   PhotoFilledIcon,
 } from '../icons';
 import IconMenuEdit from '../../../imports/IconMenuEdit';
-import imgPratik from 'figma:asset/48e008728bee7339289715457d6d06f3c3e511db.png';
+import imgPratik from '../../../assets/pratik_profile.png';
 import { CURRENT_USER } from '../../../data/currentUser';
 
 // ─────────────────────────────────────────────────────────────

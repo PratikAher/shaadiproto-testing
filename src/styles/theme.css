@@ -162,6 +162,19 @@
     --color-compose-card-border: #e4e4e7;
     --color-sia-pill-bg: #ffffff;
     --color-post-connect-cta-bg: #ffffff;
+
+    /* Filter bottom sheet / Option 4 right pane (Figma Inbox — not on Zinc scale) */
+    --color-filter-text-1: #41404d;
+    --color-filter-text-3: #72727d;
+    --color-filter-text-4: #84848d;
+    --color-filter-surface-muted: #f9f9fb;
+    --color-filter-divider: #f1f1f2;
+    --color-filter-border: #dfe0e3;
+    --color-filter-checkbox-border: #bfc1c5;
+    --color-filter-row-selected: #edf8fa;
+    /* Filter sheet left nav strip (Figma Inbox category column) */
+    --color-filter-nav-strip-bg: #f4f4f4;
+    --color-filter-nav-strip-hover: #ededf0;
   }
 
   .dark {
@@ -233,6 +246,18 @@
     --color-compose-card-border: rgba(255, 255, 255, 0.08);
     --color-sia-pill-bg: #161619;
     --color-post-connect-cta-bg: #1e1e22;
+
+    /* Filter sheet — dark surfaces (readable on sheet bg) */
+    --color-filter-text-1: #e4e4e7;
+    --color-filter-text-3: #a1a1aa;
+    --color-filter-text-4: #71717a;
+    --color-filter-surface-muted: #232328;
+    --color-filter-divider: rgba(255, 255, 255, 0.08);
+    --color-filter-border: rgba(255, 255, 255, 0.12);
+    --color-filter-checkbox-border: #71717a;
+    --color-filter-row-selected: rgba(10, 164, 184, 0.18);
+    --color-filter-nav-strip-bg: #1c1c1f;
+    --color-filter-nav-strip-hover: #26262b;
   }
 
   * {

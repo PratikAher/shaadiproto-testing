@@ -2,7 +2,7 @@ import React from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { CURRENT_USER } from '../../data/currentUser';
 import svgPaths from '../../imports/svg-qrxl3wupqq';
-import imgPratikAvatar from 'figma:asset/c335d8f45badc8f3de1f30f7d1a5c3aa215dfe8c.png';
+import imgPratikAvatar from '../../assets/pratik_avatar.png';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Props

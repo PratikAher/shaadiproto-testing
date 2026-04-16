@@ -44,6 +44,7 @@ export interface SharedFilterState {
   state: string[];
   city: string[];
   countryGrewUp: string[];
+  residencyStatus: string[];
   workingWith: string[];
   profession: string[];
   professionArea: string[];
@@ -95,6 +96,7 @@ export const EMPTY_SHARED_FILTERS: SharedFilterState = {
   state: [],
   city: [],
   countryGrewUp: [],
+  residencyStatus: [],
   workingWith: [],
   profession: [],
   professionArea: [],
@@ -196,6 +198,8 @@ export interface SharedFilterDefinition {
   options?: FilterOption[];
   optionGroups?: FilterOptionGroup[];
   searchable?: boolean;
+  /** Overrides default `Search ${label}` for searchable multi-select inputs */
+  searchPlaceholder?: string;
   /** Single-select: show “Open to all” row that clears selection */
   allowClear?: boolean;
   priority: number;
@@ -365,11 +369,11 @@ export const SHARED_FILTER_CATEGORIES: SharedFilterCategory[] = [
         controlType: 'multi-select',
         priority: 30,
         options: [
-          { value: 'Never Married', label: 'Never Married' },
-          { value: 'Divorced', label: 'Divorced' },
-          { value: 'Widowed', label: 'Widowed' },
-          { value: 'Awaiting Divorce', label: 'Awaiting Divorce' },
-          { value: 'Annulled', label: 'Annulled' },
+          { value: 'Never Married', label: 'Never Married (2,341)' },
+          { value: 'Divorced', label: 'Divorced (643)' },
+          { value: 'Widowed', label: 'Widowed (187)' },
+          { value: 'Awaiting Divorce', label: 'Awaiting Divorce (96)' },
+          { value: 'Annulled', label: 'Annulled (42)' },
         ],
         fieldContract: {
           dataSource: 'profile',
@@ -401,11 +405,9 @@ export const SHARED_FILTER_CATEGORIES: SharedFilterCategory[] = [
         premium: true,
         priority: 40,
         options: [
-          { value: 'Self', label: 'Self' },
-          { value: 'Parent', label: 'Parents', aliases: ['Parent', 'Parent / Guardian'] },
-          { value: 'Sibling', label: 'Siblings', aliases: ['Sibling'] },
-          { value: 'Relative', label: 'Others', aliases: ['Relative'] },
-          { value: 'Other', label: 'Other', aliases: [] },
+          { value: 'Self', label: 'Self (1,982)' },
+          { value: 'Parent', label: 'Parents / Guardian (1,043)', aliases: ['Parent', 'Parent / Guardian'] },
+          { value: 'Other', label: 'Other (121)', aliases: [] },
         ],
         fieldContract: {
           dataSource: 'profile',
@@ -466,13 +468,14 @@ export const SHARED_FILTER_CATEGORIES: SharedFilterCategory[] = [
       },
       {
         key: 'manglik',
-        label: 'Manglik',
+        label: 'Manglik status',
         controlType: 'multi-select',
         priority: 40,
         options: [
-          { value: 'yes', label: 'Yes' },
-          { value: 'no', label: 'No' },
-          { value: 'unknown', label: "Don't know" },
+          { value: 'manglik', label: 'Manglik (28)' },
+          { value: 'angshik_manglik', label: 'Angshik Manglik (14)' },
+          { value: 'non_manglik', label: 'Non\u2011Manglik (67)' },
+          { value: 'dont_know', label: "Don't know (9)" },
         ],
         fieldContract: {
           dataSource: 'profile',
@@ -525,10 +528,11 @@ export const SHARED_FILTER_CATEGORIES: SharedFilterCategory[] = [
     filters: [
       {
         key: 'workingWith',
-        label: 'Working with',
+        label: 'Employed in',
         controlType: 'multi-select',
         searchable: true,
         priority: 5,
+        searchPlaceholder: 'Search employment type',
         options: WORKING_WITH_OPTIONS.map((o) => ({ value: o.value, label: o.label, aliases: o.aliases })),
         fieldContract: {
           dataSource: 'derived',
@@ -540,10 +544,11 @@ export const SHARED_FILTER_CATEGORIES: SharedFilterCategory[] = [
       },
       {
         key: 'professionArea',
-        label: 'Profession area',
+        label: 'Occupation area',
         controlType: 'multi-select',
         searchable: true,
         priority: 8,
+        searchPlaceholder: 'Search occupation area',
         options: PROFESSION_AREA_OPTIONS.map((o) => ({ value: o.value, label: o.label, aliases: o.aliases })),
         fieldContract: {
           dataSource: 'profile',
@@ -701,6 +706,26 @@ export const SHARED_FILTER_CATEGORIES: SharedFilterCategory[] = [
         },
       },
       {
+        key: 'residencyStatus',
+        label: 'Residency Status',
+        controlType: 'multi-select',
+        searchable: false,
+        premium: true,
+        priority: 36,
+        options: [
+          { value: 'Citizen', label: 'Citizen' },
+          { value: 'Permanent Resident', label: 'Permanent Resident' },
+          { value: 'Student Visa', label: 'Student Visa' },
+          { value: 'Temporary Visa', label: 'Temporary Visa' },
+          { value: 'Work Permit', label: 'Work Permit' },
+        ],
+        fieldContract: {
+          dataSource: 'profile',
+          profilePath: 'residencyStatus',
+          matcherKind: 'exact',
+        },
+      },
+      {
         key: 'diet',
         label: 'Eating habits',
         controlType: 'multi-select',
@@ -829,6 +854,9 @@ export function countCategoryActiveFilters(
 
 export type FilterExperienceVersion = 'option1' | 'option2' | 'option3' | 'option4' | 'option5';
 
+/** How the premium upsell appears when a free user taps a locked premium filter control. */
+export type PremiumLockPromptPresentation = 'floating-card' | 'nested-bottom-sheet';
+
 export type RightPaneStyle = 'flat' | 'sub-sectioned' | 'progressive';
 
 export interface FilterSubSection {
@@ -941,40 +969,55 @@ export function getIterationCategories(iteration: FilterExperienceVersion, perso
 
 const ALL_HOBBIES_OPTIONS = HOBBIES_OPTIONS.map((o) => ({ value: o.value, label: o.label }));
 
-const OPTION4_PARTNER_COUNTRY_OPTIONS_ALL: FilterOption[] = [
+/** Option 4 — Country living in (partner location). */
+const OPTION4_COUNTRY_LIVING_IN_OPTIONS: FilterOption[] = [
   { value: 'India', label: 'India (2,847)' },
   { value: 'United States', label: 'USA (1,123)' },
   { value: 'United Kingdom', label: 'UK (456)' },
-  { value: 'Canada', label: 'Canada (312)' },
+];
+
+/** Option 4 — Country grew up in (subset + Kuwait). */
+const OPTION4_COUNTRY_GREW_UP_IN_OPTIONS: FilterOption[] = [
+  { value: 'India', label: 'India (999)' },
+  { value: 'United States', label: 'USA (999)' },
+  { value: 'United Kingdom', label: 'UK (456)' },
+  { value: 'Kuwait', label: 'Kuwait (98)' },
 ];
 
 const OPTION4_FAMILY_COUNTRY_OPTIONS_ALL: FilterOption[] = [
-  { value: 'India', label: 'India (2,234)' },
-  { value: 'United States', label: 'United States (432)' },
-  { value: 'United Arab Emirates', label: 'United Arab Emirates (198)' },
+  { value: 'Mumbai', label: 'Mumbai (543)' },
+  { value: 'Delhi NCR', label: 'Delhi NCR (487)' },
+  { value: 'Bengaluru', label: 'Bengaluru (456)' },
+  { value: 'Pune', label: 'Pune (398)' },
+  { value: 'Hyderabad', label: 'Hyderabad (376)' },
+  { value: 'Chennai', label: 'Chennai (344)' },
+  { value: 'Ahmedabad', label: 'Ahmedabad (299)' },
+  { value: 'Kolkata', label: 'Kolkata (276)' },
+  { value: 'Jaipur', label: 'Jaipur (231)' },
+  { value: 'Lucknow', label: 'Lucknow (219)' },
+  { value: 'Surat', label: 'Surat (204)' },
+  { value: 'Indore', label: 'Indore (187)' },
 ];
 
-/** Partner “Country Living In” — Zaid (India-only search); Arjun (US first, then India/UK/CA). */
+/** Partner “Country Living In” — Zaid (India-only); Arjun (US, India, UK). */
 function getOption4PartnerCountryOptionsForPersona(personaId?: string): FilterOption[] {
   switch (personaId) {
     case 'zaid':
-      return OPTION4_PARTNER_COUNTRY_OPTIONS_ALL.filter((o) => o.value === 'India');
+      return OPTION4_COUNTRY_LIVING_IN_OPTIONS.filter((o) => o.value === 'India');
     case 'arjun': {
-      const order = ['United States', 'India', 'United Kingdom', 'Canada'];
+      const order = ['United States', 'India', 'United Kingdom'];
       return order
-        .map((v) => OPTION4_PARTNER_COUNTRY_OPTIONS_ALL.find((o) => o.value === v))
+        .map((v) => OPTION4_COUNTRY_LIVING_IN_OPTIONS.find((o) => o.value === v))
         .filter((o): o is FilterOption => o != null);
     }
     default:
-      return OPTION4_PARTNER_COUNTRY_OPTIONS_ALL;
+      return OPTION4_COUNTRY_LIVING_IN_OPTIONS;
   }
 }
 
-/** Family’s country — Zaid India-only; Arjun / default keep full diaspora set. */
+/** Option 4 Family Location options (city/location centric). */
 function getOption4FamilyCountryOptionsForPersona(personaId?: string): FilterOption[] {
   switch (personaId) {
-    case 'zaid':
-      return OPTION4_FAMILY_COUNTRY_OPTIONS_ALL.filter((o) => o.value === 'India');
     default:
       return OPTION4_FAMILY_COUNTRY_OPTIONS_ALL;
   }
@@ -1042,7 +1085,7 @@ const OPTION4_CATEGORIES: IterationCategoryConfig[] = [
   {
     id: 'basic',
     title: 'Basic Details',
-    filters: pick('ageRange', 'heightRange', 'profileManagedBy', 'maritalStatus', 'partnerHasChildren'),
+    filters: pick('ageRange', 'heightRange', 'profileManagedBy', 'maritalStatus', 'partnerHasChildren', 'manglik'),
   },
   {
     id: 'location',
@@ -1053,7 +1096,7 @@ const OPTION4_CATEGORIES: IterationCategoryConfig[] = [
         label: 'Country Living In',
         controlType: 'multi-select',
         priority: 10,
-        options: OPTION4_PARTNER_COUNTRY_OPTIONS_ALL,
+        options: OPTION4_COUNTRY_LIVING_IN_OPTIONS,
         fieldContract: { dataSource: 'profile', profilePath: 'location.country', matcherKind: 'exact' },
       },
       {
@@ -1110,6 +1153,32 @@ const OPTION4_CATEGORIES: IterationCategoryConfig[] = [
         ],
         fieldContract: { dataSource: 'profile', profilePath: 'location.city', matcherKind: 'exact' },
       },
+      {
+        key: 'countryGrewUp',
+        label: 'Country grew up in',
+        controlType: 'multi-select',
+        priority: 40,
+        options: [...OPTION4_COUNTRY_GREW_UP_IN_OPTIONS],
+        fieldContract: { dataSource: 'profile', profilePath: 'countryGrewUp', matcherKind: 'exact' },
+      },
+      {
+        key: 'residencyStatus',
+        label: 'Residency Status',
+        controlType: 'multi-select',
+        premium: true,
+        priority: 50,
+        options: [
+          {
+            value: 'citizen_or_permanent_resident',
+            label: 'Citizen / Permanent Resident (710)',
+          },
+          {
+            value: 'work_or_student_visa',
+            label: 'Work / Student Visa (510)',
+          },
+        ],
+        fieldContract: { dataSource: 'profile', profilePath: 'residencyStatus', matcherKind: 'exact' },
+      },
     ],
   },
   {
@@ -1120,30 +1189,13 @@ const OPTION4_CATEGORIES: IterationCategoryConfig[] = [
         key: 'religion' as SharedFilterKey,
         label: 'Religion',
         controlType: 'multi-select',
+        skipResolve: true,
         priority: 10,
         options: [
           { value: 'Hindu', label: 'Hindu (1,241)' },
-          { value: 'Muslim', label: 'Muslim (512)' },
-          { value: 'Christian', label: 'Christian (287)' },
-          { value: 'Sikh', label: 'Sikh (198)' },
           { value: 'Jain', label: 'Jain (143)' },
-          { value: 'Buddhist', label: 'Buddhist (87)' },
-          { value: 'Parsi', label: 'Parsi (32)' },
-          { value: 'Other', label: 'Other (64)' },
         ],
         fieldContract: { dataSource: 'profile', profilePath: 'religion', matcherKind: 'exact' },
-      },
-      {
-        key: 'manglik' as SharedFilterKey,
-        label: 'Manglik',
-        controlType: 'multi-select',
-        priority: 40,
-        options: [
-          { value: 'yes', label: 'Yes (428)' },
-          { value: 'no', label: 'No (312)' },
-          { value: 'unknown', label: 'Not sure (156)' },
-        ],
-        fieldContract: { dataSource: 'profile', profilePath: 'manglik', matcherKind: 'exact' },
       },
     ],
   },
@@ -1156,16 +1208,18 @@ const OPTION4_CATEGORIES: IterationCategoryConfig[] = [
         label: 'Mother Tongue',
         controlType: 'multi-select',
         priority: 10,
-        // Sorted descending by profile count; South Indian languages lead for Priya persona
         options: [
+          { value: 'Hindi', label: 'Hindi (1,248)' },
+          { value: 'English', label: 'English (934)' },
+          { value: 'Bengali', label: 'Bengali (612)' },
           { value: 'Telugu', label: 'Telugu (1,234)' },
-          { value: 'Tamil', label: 'Tamil (987)' },
-          { value: 'Hindi', label: 'Hindi (876)' },
-          { value: 'Kannada', label: 'Kannada (743)' },
           { value: 'Marathi', label: 'Marathi (654)' },
-          { value: 'Malayalam', label: 'Malayalam (534)' },
+          { value: 'Tamil', label: 'Tamil (987)' },
           { value: 'Gujarati', label: 'Gujarati (312)' },
-          { value: 'Bengali', label: 'Bengali (198)' },
+          { value: 'Kannada', label: 'Kannada (743)' },
+          { value: 'Malayalam', label: 'Malayalam (534)' },
+          { value: 'Odia', label: 'Odia (221)' },
+          { value: 'Punjabi', label: 'Punjabi (487)' },
         ],
         fieldContract: { dataSource: 'profile', profilePath: 'motherTongue', matcherKind: 'exact' },
       },
@@ -1204,37 +1258,38 @@ const OPTION4_CATEGORIES: IterationCategoryConfig[] = [
     filters: [
       {
         key: 'qualification' as SharedFilterKey,
-        label: 'Education level',
+        label: 'Education Level',
         controlType: 'multi-select',
         priority: 10,
-        // Values match EDUCATION_LEVEL_OPTIONS catalog — only labels have counts added
         options: [
-          { value: 'doctorate', label: 'Doctorate (87)' },
-          { value: 'masters', label: "Master's (543)" },
-          { value: 'honors_professional', label: 'Honors / Professional Certificate (312)' },
-          { value: 'bachelors', label: "Bachelor's (1,234)" },
-          { value: 'associate', label: 'Associate (198)' },
-          { value: 'diploma', label: 'Diploma (243)' },
-          { value: 'high_school', label: 'High School (156)' },
-          { value: 'less_than_high_school', label: 'Less than High School (43)' },
+          { value: 'less_than_high_school', label: 'Less than high school (143)' },
+          { value: 'high_school', label: 'High school (298)' },
+          { value: 'diploma', label: 'Diploma (387)' },
+          { value: 'associate', label: 'Associate (221)' },
+          { value: 'honors_professional', label: 'Honors (312)' },
+          { value: 'bachelors', label: "Bachelor's (999)" },
+          { value: 'masters', label: "Master's (768)" },
+          { value: 'doctorate', label: 'Doctorate (154)' },
         ],
         fieldContract: { dataSource: 'profile', profilePath: 'highestQualification', onboardingPath: 'qualification', matcherKind: 'derived' },
       },
       {
         key: 'educationField' as SharedFilterKey,
-        label: 'Field of study',
+        label: 'Education Area',
         controlType: 'multi-select',
         priority: 20,
-        // Values match FIELD_OF_STUDY_OPTIONS catalog — only labels have counts added
         options: [
-          { value: 'Engineering', label: 'Engineering (876)' },
+          { value: 'Arts / Design', label: 'Arts / Design (198)' },
           { value: 'Computers / IT', label: 'Computers / IT (654)' },
+          { value: 'Doctor', label: 'Doctor (176)' },
+          { value: 'Engineering', label: 'Engineering (876)' },
           { value: 'Finance / Commerce', label: 'Finance / Commerce (432)' },
+          { value: 'Law', label: 'Law (143)' },
           { value: 'Management', label: 'Management (543)' },
           { value: 'Medicine', label: 'Medicine (345)' },
           { value: 'Science', label: 'Science (234)' },
-          { value: 'Arts / Design', label: 'Arts / Design (198)' },
-          { value: 'Law', label: 'Law (143)' },
+          { value: 'Others', label: 'Others (287)' },
+          { value: 'Non-Graduate', label: 'Non-Graduate (156)' },
         ],
         fieldContract: { dataSource: 'profile', profilePath: 'educationField', onboardingPath: 'qualification', matcherKind: 'exact' },
       },
@@ -1249,12 +1304,12 @@ const OPTION4_CATEGORIES: IterationCategoryConfig[] = [
         label: 'Employed in',
         controlType: 'multi-select',
         priority: 10,
-        // Values match WORKING_WITH_OPTIONS catalog — only labels have counts added
+        searchPlaceholder: 'Search employment type',
         options: [
-          { value: 'Private Company', label: 'Private Company (1,234)' },
+          { value: 'Private Company', label: 'Private Company (999)' },
           { value: 'Business / Self Employed', label: 'Business / self-employed (543)' },
           { value: 'Government / Public Sector', label: 'Government / Public Sector (432)' },
-          { value: 'Defense / Civil Services', label: 'Defense / Civil Services (87)' },
+          { value: 'Defense / Civil Services', label: 'Defense / Civil Services (198)' },
           { value: 'Not working', label: 'Not working (198)' },
           { value: 'Other', label: 'Other (156)' },
         ],
@@ -1262,46 +1317,36 @@ const OPTION4_CATEGORIES: IterationCategoryConfig[] = [
       },
       {
         key: 'professionArea' as SharedFilterKey,
-        label: 'Professional field',
+        label: 'Occupation area',
         controlType: 'multi-select',
+        searchable: true,
         priority: 20,
-        // Values match PROFESSION_AREA_OPTIONS catalog — only labels have counts added
+        searchPlaceholder: 'Search occupation area',
         options: [
-          { value: 'IT & Software Engineering', label: 'IT & Software Engineering (987)' },
-          { value: 'Medical & Healthcare', label: 'Medical & Healthcare (543)' },
-          { value: 'Banking & Finance', label: 'Banking & Finance (432)' },
+          { value: 'Accounting, Banking & Finance', label: 'Accounting, Banking & Finance (432)' },
+          { value: 'Administration & HR', label: 'Administration & HR (287)' },
+          { value: 'Advertising, Media & Entertainment', label: 'Advertising, Media & Entertainment (198)' },
+          { value: 'Agriculture', label: 'Agriculture (143)' },
+          { value: 'Airline & Aviation', label: 'Airline & Aviation (112)' },
+          { value: 'Architecture & Design', label: 'Architecture & Design (176)' },
+          { value: 'Artists, Animators & Web Designers', label: 'Artists, Animators & Web Designers (156)' },
+          { value: 'Beauty, Fashion & Jewellery Designers', label: 'Beauty, Fashion & Jewellery Designers (121)' },
+          { value: 'BPO, KPO, & Customer Support', label: 'BPO, KPO, & Customer Support (243)' },
+          { value: 'Civil Services / Law Enforcement', label: 'Civil Services / Law Enforcement (132)' },
+          { value: 'Corporate Professionals', label: 'Corporate Professionals (654)' },
+          { value: 'Defense', label: 'Defense (109)' },
           { value: 'Education & Training', label: 'Education & Training (312)' },
           { value: 'Engineering', label: 'Engineering (287)' },
-          { value: 'Corporate Professionals', label: 'Corporate Professionals (234)' },
-          { value: 'Sales & Marketing', label: 'Sales & Marketing (198)' },
-          { value: 'Architecture & Design', label: 'Architecture & Design (143)' },
-          { value: 'Accounting', label: 'Accounting (198)' },
-          { value: 'Administration & HR', label: 'Administration & HR (156)' },
-          { value: 'Others', label: 'Others (287)' },
+          { value: 'Hotel & Hospitality', label: 'Hotel & Hospitality (166)' },
+          { value: 'IT & Software Engineering', label: 'IT & Software Engineering (999)' },
+          { value: 'Legal', label: 'Legal (143)' },
+          { value: 'Medical & Healthcare', label: 'Medical & Healthcare (543)' },
+          { value: 'Merchant Navy', label: 'Merchant Navy (87)' },
+          { value: 'Non Working', label: 'Non Working (198)' },
+          { value: 'Sales & Marketing', label: 'Sales & Marketing (321)' },
+          { value: 'Science', label: 'Science (234)' },
         ],
         fieldContract: { dataSource: 'profile', profilePath: 'professionArea', onboardingPath: 'workAs', matcherKind: 'exact' },
-      },
-      {
-        key: 'profession' as SharedFilterKey,
-        label: 'Working as',
-        controlType: 'multi-select',
-        priority: 30,
-        // Values match WORKING_AS_OPTIONS catalog — only labels have counts added
-        options: [
-          { value: 'Software Consultant', label: 'Software Consultant (654)' },
-          { value: 'Doctor', label: 'Doctor (312)' },
-          { value: 'CA', label: 'CA (198)' },
-          { value: 'Teacher', label: 'Teacher (287)' },
-          { value: 'Consultant / Supervisor / Team Lead', label: 'Consultant / Supervisor / Team Lead (234)' },
-          { value: 'Banking Professional', label: 'Banking Professional (198)' },
-          { value: 'Lawyer', label: 'Lawyer (112)' },
-          { value: 'Data Analyst', label: 'Data Analyst (143)' },
-          { value: 'Product Manager', label: 'Product Manager (176)' },
-          { value: 'Architect', label: 'Architect (87)' },
-          { value: 'Non-IT Engineer', label: 'Non-IT Engineer (156)' },
-          { value: 'Other', label: 'Other (312)' },
-        ],
-        fieldContract: { dataSource: 'profile', profilePath: 'profession', onboardingPath: 'workAs', matcherKind: 'includes' },
       },
     ],
   },
@@ -1374,50 +1419,26 @@ const OPTION4_CATEGORIES: IterationCategoryConfig[] = [
       },
       {
         key: 'familyCountry' as SharedFilterKey,
-        label: "Family's country",
+        label: 'Family Location',
         controlType: 'multi-select',
+        searchable: true,
         priority: 30,
         options: OPTION4_FAMILY_COUNTRY_OPTIONS_ALL,
         fieldContract: { dataSource: 'profile', profilePath: 'familyCountry', matcherKind: 'exact' },
       },
-      {
-        key: 'familyState' as SharedFilterKey,
-        label: "Family's state",
-        controlType: 'multi-select',
-        priority: 40,
-        options: STATE_OPTIONS.map((o) => ({ value: o.value, label: o.label })),
-        fieldContract: { dataSource: 'profile', profilePath: 'familyState', matcherKind: 'exact' },
-      },
-      {
-        key: 'familyCity' as SharedFilterKey,
-        label: "Family's city",
-        controlType: 'multi-select',
-        priority: 50,
-        options: [
-          { value: 'Mumbai', label: 'Mumbai (543)' },
-          { value: 'Bengaluru', label: 'Bengaluru (487)' },
-          { value: 'Hyderabad', label: 'Hyderabad (423)' },
-          { value: 'Chennai', label: 'Chennai (312)' },
-          { value: 'Pune', label: 'Pune (287)' },
-          { value: 'New Delhi', label: 'New Delhi (456)' },
-          { value: 'Ahmedabad', label: 'Ahmedabad (198)' },
-          { value: 'Nashik', label: 'Nashik (143)' },
-        ],
-        fieldContract: { dataSource: 'profile', profilePath: 'familyCity', matcherKind: 'exact' },
-      },
     ],
   },
   {
-    id: 'lifestyle',
-    title: 'Lifestyle',
+    id: 'diet',
+    title: 'Diet',
     filters: [
       {
         key: 'diet' as SharedFilterKey,
-        label: 'Eating Habits',
+        label: 'Diet',
         controlType: 'multi-select',
         priority: 10,
         options: [
-          { value: 'Non-Vegetarian', label: 'Non-veg (1,234)' },
+          { value: 'Non-Vegetarian', label: 'Non-veg (999)' },
           { value: 'Vegetarian', label: 'Vegetarian (987)' },
           { value: 'Occasionally Non-Vegetarian', label: 'Occasionally non-veg (654)' },
           { value: 'Eggetarian', label: 'Eggetarian (423)' },
@@ -1426,41 +1447,67 @@ const OPTION4_CATEGORIES: IterationCategoryConfig[] = [
         ],
         fieldContract: { dataSource: 'profile', profilePath: 'diet', matcherKind: 'includes' },
       },
+    ],
+  },
+  {
+    id: 'hobbies',
+    title: 'Hobbies & Interests',
+    filters: [
       {
         key: 'hobbies' as SharedFilterKey,
         label: 'Hobbies & Interests',
         controlType: 'multi-select',
-        priority: 50,
-        options: [
-          { value: 'Travel', label: 'Travel (987)' },
-          { value: 'Music', label: 'Music (876)' },
-          { value: 'Reading', label: 'Reading (743)' },
-          { value: 'Cooking', label: 'Cooking (654)' },
-          { value: 'Fitness', label: 'Fitness (612)' },
-          { value: 'Photography', label: 'Photography (534)' },
-          { value: 'Movies', label: 'Movies (487)' },
-          { value: 'Yoga', label: 'Yoga (398)' },
-          { value: 'Cricket', label: 'Cricket (356)' },
-          { value: 'Food & Dining', label: 'Food & Dining (312)' },
-        ],
-        fieldContract: { dataSource: 'profile', profilePath: 'hobbies', matcherKind: 'includes' },
-      },
-    ],
-  },
-  {
-    id: 'astro',
-    title: 'Astro Details',
-    filters: [
-      {
-        key: 'astroFilter' as SharedFilterKey,
-        label: 'Astro Preferences',
-        controlType: 'multi-select',
+        searchable: true,
         priority: 10,
         options: [
-          { value: 'with_astro', label: 'Detailed Match (1,432)' },
-          { value: 'without_astro', label: 'Basic Match (1,415)' },
+          { value: 'Writing', label: 'Writing (284)' },
+          { value: 'Cooking', label: 'Cooking (654)' },
+          { value: 'Singing', label: 'Singing (521)' },
+          { value: 'Photography', label: 'Photography (534)' },
+          { value: 'Playing instruments', label: 'Playing instruments (263)' },
+          { value: 'Painting', label: 'Painting (246)' },
+          { value: 'DIY crafts', label: 'DIY crafts (178)' },
+          { value: 'Dancing', label: 'Dancing (598)' },
+          { value: 'Acting', label: 'Acting (156)' },
+          { value: 'Poetry', label: 'Poetry (132)' },
+          { value: 'Gardening', label: 'Gardening (211)' },
+          { value: 'Blogging', label: 'Blogging (143)' },
+          { value: 'Content creation', label: 'Content creation (334)' },
+          { value: 'Designing', label: 'Designing (287)' },
+          { value: 'Doodling', label: 'Doodling (167)' },
+          { value: 'Movies', label: 'Movies (487)' },
+          { value: 'Music', label: 'Music (876)' },
+          { value: 'Travelling', label: 'Travelling (999)' },
+          { value: 'Reading', label: 'Reading (743)' },
+          { value: 'Sports', label: 'Sports (632)' },
+          { value: 'Social media', label: 'Social media (598)' },
+          { value: 'Gaming', label: 'Gaming (476)' },
+          { value: 'Binge-watching', label: 'Binge-watching (454)' },
+          { value: 'Biking', label: 'Biking (286)' },
+          { value: 'Clubbing', label: 'Clubbing (198)' },
+          { value: 'Shopping', label: 'Shopping (623)' },
+          { value: 'Theater & Events', label: 'Theater & Events (244)' },
+          { value: 'Anime', label: 'Anime (221)' },
+          { value: 'Stand ups', label: 'Stand ups (154)' },
+          { value: 'Running', label: 'Running (398)' },
+          { value: 'Cycling', label: 'Cycling (367)' },
+          { value: 'Yoga & Meditation', label: 'Yoga & Meditation (512)' },
+          { value: 'Walking', label: 'Walking (289)' },
+          { value: 'Working out', label: 'Working out (577)' },
+          { value: 'Trekking', label: 'Trekking (341)' },
+          { value: 'Aerobics/Zumba', label: 'Aerobics/Zumba (198)' },
+          { value: 'Swimming', label: 'Swimming (287)' },
+          { value: 'Pets', label: 'Pets (276)' },
+          { value: 'Foodie', label: 'Foodie (667)' },
+          { value: 'Vegan', label: 'Vegan (198)' },
+          { value: 'News & Politics', label: 'News & Politics (233)' },
+          { value: 'Social service', label: 'Social service (199)' },
+          { value: 'Entrepreneurship', label: 'Entrepreneurship (312)' },
+          { value: 'Home decor', label: 'Home decor (187)' },
+          { value: 'Investments', label: 'Investments (298)' },
+          { value: 'Fashion & beauty', label: 'Fashion & beauty (356)' },
         ],
-        fieldContract: { dataSource: 'profile', profilePath: 'astroMatchScore | hasAstroDetails', matcherKind: 'derived' },
+        fieldContract: { dataSource: 'profile', profilePath: 'hobbies', matcherKind: 'includes' },
       },
     ],
   },
@@ -1493,15 +1540,26 @@ function getCommunityOptionsForPersona(personaId?: string): FilterOption[] {
   switch (personaId) {
     case 'arjun': // Hindu · Punjabi / North Indian communities
       return [
-        { value: 'Khatri', label: 'Khatri (534)' },
-        { value: 'Arora', label: 'Arora (487)' },
+        { value: 'Brahmin', label: 'Brahmin (534)' },
+        { value: 'Rajput', label: 'Rajput (398)' },
+        { value: 'Maratha', label: 'Maratha (472)' },
         { value: 'Jat', label: 'Jat (423)' },
-        { value: 'Brahmin', label: 'Brahmin (312)' },
-        { value: 'Bania', label: 'Bania (287)' },
-        { value: 'Saini', label: 'Saini (198)' },
-        { value: 'Rajput', label: 'Rajput (176)' },
-        { value: 'Yadav', label: 'Yadav (143)' },
-        { value: 'Patel', label: 'Patel (198)' },
+        { value: 'Yadav', label: 'Yadav (367)' },
+        { value: 'Bania / Vaishya', label: 'Bania / Vaishya (344)' },
+        { value: 'Kayastha', label: 'Kayastha (298)' },
+        { value: 'Reddy', label: 'Reddy (743)' },
+        { value: 'Patidar / Patel', label: 'Patidar / Patel (321)' },
+        { value: 'Nair', label: 'Nair (423)' },
+        { value: 'Ezhava / Thiyya', label: 'Ezhava / Thiyya (244)' },
+        { value: 'Vokkaliga', label: 'Vokkaliga (489)' },
+        { value: 'Lingayat', label: 'Lingayat (387)' },
+        { value: 'Kamma', label: 'Kamma (612)' },
+        { value: 'Kapu', label: 'Kapu (256)' },
+        { value: 'Nadar', label: 'Nadar (231)' },
+        { value: 'Kurmi', label: 'Kurmi (219)' },
+        { value: 'Bhumihar', label: 'Bhumihar (206)' },
+        { value: 'SC (Scheduled Caste)', label: 'SC (Scheduled Caste) (342)' },
+        { value: 'ST (Scheduled Tribe)', label: 'ST (Scheduled Tribe) (274)' },
       ];
     case 'zaid': // Muslim communities
       return [
@@ -1516,15 +1574,26 @@ function getCommunityOptionsForPersona(personaId?: string): FilterOption[] {
       ];
     default: // priya — South Indian Hindu communities
       return [
-        { value: 'Reddy', label: 'Reddy (743)' },
-        { value: 'Kamma', label: 'Kamma (612)' },
         { value: 'Brahmin', label: 'Brahmin (534)' },
+        { value: 'Rajput', label: 'Rajput (398)' },
+        { value: 'Maratha', label: 'Maratha (472)' },
+        { value: 'Jat', label: 'Jat (423)' },
+        { value: 'Yadav', label: 'Yadav (367)' },
+        { value: 'Bania / Vaishya', label: 'Bania / Vaishya (344)' },
+        { value: 'Kayastha', label: 'Kayastha (298)' },
+        { value: 'Reddy', label: 'Reddy (743)' },
+        { value: 'Patidar / Patel', label: 'Patidar / Patel (321)' },
         { value: 'Vokkaliga', label: 'Vokkaliga (489)' },
         { value: 'Nair', label: 'Nair (423)' },
+        { value: 'Ezhava / Thiyya', label: 'Ezhava / Thiyya (244)' },
         { value: 'Lingayat', label: 'Lingayat (387)' },
-        { value: 'Iyer', label: 'Iyer (312)' },
-        { value: 'Patel', label: 'Patel (287)' },
-        { value: 'Maratha', label: 'Maratha (243)' },
+        { value: 'Kamma', label: 'Kamma (612)' },
+        { value: 'Kapu', label: 'Kapu (256)' },
+        { value: 'Nadar', label: 'Nadar (231)' },
+        { value: 'Kurmi', label: 'Kurmi (219)' },
+        { value: 'Bhumihar', label: 'Bhumihar (206)' },
+        { value: 'SC (Scheduled Caste)', label: 'SC (Scheduled Caste) (342)' },
+        { value: 'ST (Scheduled Tribe)', label: 'ST (Scheduled Tribe) (274)' },
       ];
   }
 }
@@ -1532,14 +1601,18 @@ function getCommunityOptionsForPersona(personaId?: string): FilterOption[] {
 /** Shared persona overrides for Option 4 / Option 5 discovery layouts (community, location, family country, basic block). */
 function mapOptionDiscoveryCategoriesForPersona(
   categories: IterationCategoryConfig[],
-  personaId?: string
+  personaId?: string,
+  options?: { forceMaritalFilters?: boolean }
 ): IterationCategoryConfig[] {
   const communityOptions = getCommunityOptionsForPersona(personaId);
   const partnerCountryOptions = getOption4PartnerCountryOptionsForPersona(personaId);
   const familyCountryOptions = getOption4FamilyCountryOptionsForPersona(personaId);
-  const basicFiltersRaw = shouldShowMaritalFiltersForPersona(personaId)
-    ? pick('ageRange', 'heightRange', 'profileManagedBy', 'maritalStatus', 'partnerHasChildren')
-    : pick('ageRange', 'heightRange', 'profileManagedBy');
+  const forceMaritalFilters = options?.forceMaritalFilters ?? false;
+  const basicFiltersRaw = forceMaritalFilters
+    ? pick('ageRange', 'heightRange', 'profileManagedBy', 'maritalStatus', 'partnerHasChildren', 'manglik')
+    : shouldShowMaritalFiltersForPersona(personaId)
+      ? pick('ageRange', 'heightRange', 'profileManagedBy', 'maritalStatus', 'partnerHasChildren', 'manglik')
+      : pick('ageRange', 'heightRange', 'profileManagedBy', 'manglik');
   const basicFilters = basicFiltersRaw.map((f) =>
     f.key === 'partnerHasChildren' ? { ...f, label: 'Has Children' } : f
   );
@@ -1577,7 +1650,7 @@ function mapOptionDiscoveryCategoriesForPersona(
 }
 
 function buildOption4CategoriesForPersona(personaId?: string): IterationCategoryConfig[] {
-  return mapOptionDiscoveryCategoriesForPersona(OPTION4_CATEGORIES, personaId);
+  return mapOptionDiscoveryCategoriesForPersona(OPTION4_CATEGORIES, personaId, { forceMaritalFilters: true });
 }
 
 function buildOption5CategoriesForPersona(personaId?: string): IterationCategoryConfig[] {
@@ -1600,11 +1673,6 @@ export function countIterationCategoryActiveFilters(
   iteration?: FilterExperienceVersion
 ): number {
   let n = category.filters.filter((f) => !isSameFilterValue(filters[f.key], baseline[f.key]) && isFilterActive(filters[f.key])).length;
-  if (iteration === 'option4' && category.id === 'quick') {
-    if (!isSameFilterValue(filters.photoVisibility, baseline.photoVisibility) && isFilterActive(filters.photoVisibility)) {
-      n += 1;
-    }
-  }
   if (iteration === 'option5' && category.id === 'photo_visibility') {
     if (!isSameFilterValue(filters.photoVisibility, baseline.photoVisibility) && isFilterActive(filters.photoVisibility)) {
       n += 1;

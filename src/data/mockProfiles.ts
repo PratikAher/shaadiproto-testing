@@ -2507,7 +2507,7 @@ export const MOCK_PROFILES: Profile[] = RAW_PROFILES.map((p, idx) => {
   const keyFull = p.photos.full;
   const mappedImages = resolveImagesForProfile(keyFull);
 
-  const manglikCycle = ['no', 'yes', 'unknown'] as const;
+  const manglikCycle = ['manglik', 'angshik_manglik', 'non_manglik', 'dont_know'] as const;
   const areaCycle = ['IT & Software Engineering', 'Medical & Healthcare', 'Education & Training', 'Banking & Finance'];
   const grewCycle = ['India', 'United States', 'United Arab Emirates', 'United Kingdom'];
 
@@ -2517,7 +2517,7 @@ export const MOCK_PROFILES: Profile[] = RAW_PROFILES.map((p, idx) => {
       full: mappedImages.full,
       avatar: mappedImages.avatar,
     },
-    manglik: (p as { manglik?: string }).manglik ?? manglikCycle[idx % 3],
+    manglik: (p as { manglik?: string }).manglik ?? manglikCycle[idx % 4],
     professionArea: (p as { professionArea?: string }).professionArea ?? areaCycle[idx % areaCycle.length],
     countryGrewUp: (p as { countryGrewUp?: string }).countryGrewUp ?? grewCycle[idx % grewCycle.length],
     incomeUsdK: (p as { incomeUsdK?: number }).incomeUsdK ?? (idx % 7 === 0 ? 120 + idx : undefined),

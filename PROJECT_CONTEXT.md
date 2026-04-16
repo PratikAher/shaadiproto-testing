@@ -13,6 +13,10 @@
     * **Current:** Use placeholders or local assets in `src/assets`.
     * **Goal:** Real images must be bundled with the app (no external URLs).
 
+## 2.1 Production preview
+
+* **Vercel (latest production):** https://shaadiproto-main.vercel.app
+
 ## 3. The "Hybrid" Workflow Rules
 * **Source of Truth:** The React code in `src/` is the visual reference.
 * **Design Tokens:** Strict adherence to `Guidelines.md` (Typography, Colors, Shapes).

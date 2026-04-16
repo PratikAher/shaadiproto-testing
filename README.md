@@ -10,3 +10,9 @@ This is a code bundle for Mobile Design System Skeleton. The original project is
 Run `npm i` to install the dependencies.
 
 Run `npm run dev` to start the development server.
+
+## Production preview (Vercel)
+
+Stable URL: [https://shaadiproto-main.vercel.app](https://shaadiproto-main.vercel.app)
+
+Redeploy from this directory: `npx vercel deploy --prod --yes`

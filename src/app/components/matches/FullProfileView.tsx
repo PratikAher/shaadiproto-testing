@@ -41,7 +41,7 @@ import CallButton from '../../../imports/CircularButtons-8002-323';
 import svgCtaIcons from '../../../imports/svg-61w1ckspo6';
 import svgYouHer from '../../../imports/svg-2y2dfmlocp';
 import imgYouHerBg from 'figma:asset/5fcec58dae017f1de16b2430c56cf91ecf87e8b7.png';
-import imgCurrentUserAvatar from 'figma:asset/cd5b516c2295b9ad81ec9bea0b10ec52461afc56.png';
+import imgCurrentUserAvatar from '../../../assets/pratik_avatar.png';
 import svgVipCtaIcons from '../../../imports/svg-xjl3xw16o6';
 import type { Profile } from './ProfileCard';
 import type { SolutionVariant } from './ConnectMessageSheet';

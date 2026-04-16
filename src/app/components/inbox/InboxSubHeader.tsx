@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useId } from 'react';
+import React, { useState, useRef, useEffect, useLayoutEffect, useId } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cva } from 'class-variance-authority';
 import { ChevronDown } from 'lucide-react';
@@ -96,6 +96,8 @@ interface InboxSubHeaderProps {
   isCurrentUserPremium?: boolean;
   filterExperienceVersion?: FilterExperienceVersion;
   isScrolled?: boolean;
+  /** When true (usually via ?figmaCaptureInboxSortOpen=1), opens sort menu on mount and ignores outside-click close briefly so Figma capture can snapshot the open dropdown after a full page load. */
+  openSortMenuForFigmaCapture?: boolean;
   quickChipState?: {
     verified: boolean;
     withPhoto: boolean;
@@ -115,18 +117,30 @@ export const InboxSubHeader = ({
   isCurrentUserPremium = false,
   filterExperienceVersion = 'option1',
   isScrolled = false,
+  openSortMenuForFigmaCapture = false,
   quickChipState,
   onToggleQuickChip,
 }: InboxSubHeaderProps) => {
-  const [showSortDropdown, setShowSortDropdown] = useState(false);
+  const [showSortDropdown, setShowSortDropdown] = useState(() => openSortMenuForFigmaCapture);
   const sortRef = useRef<HTMLDivElement>(null);
   const sortDropdownRef = useRef<HTMLDivElement>(null);
   const sortButtonRef = useRef<HTMLButtonElement>(null);
   const [sortMenuPosition, setSortMenuPosition] = useState<{ left: number; top: number } | null>(null);
   const sortListId = useId();
 
+  /** Figma HTML capture often sends stray clicks; the sort control toggles closed — lock menu open for full layer import. */
+  const lockSortMenuForCapture = openSortMenuForFigmaCapture;
+
+  const toggleSortDropdown = () => {
+    if (lockSortMenuForCapture) {
+      setShowSortDropdown(true);
+      return;
+    }
+    setShowSortDropdown((o) => !o);
+  };
+
   useEffect(() => {
-    if (!showSortDropdown) return;
+    if (!showSortDropdown || lockSortMenuForCapture) return;
     const handler = (e: MouseEvent) => {
       const target = e.target as Node;
       if (
@@ -139,7 +153,16 @@ export const InboxSubHeader = ({
     };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
-  }, [showSortDropdown]);
+  }, [showSortDropdown, lockSortMenuForCapture]);
+
+  useEffect(() => {
+    if (!showSortDropdown || lockSortMenuForCapture) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setShowSortDropdown(false);
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [showSortDropdown, lockSortMenuForCapture]);
 
   const hasActiveFilters = activeFilterCount > 0;
   // Renumbered filter experiences:
@@ -151,7 +174,7 @@ export const InboxSubHeader = ({
       ? 'bg-background border-b border-border shadow-[0_6px_14px_rgba(0,0,0,0.06)]'
       : 'bg-transparent border-b border-transparent'
   );
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!showSortDropdown || !sortButtonRef.current) return;
     const rect = sortButtonRef.current.getBoundingClientRect();
     setSortMenuPosition({
@@ -181,7 +204,7 @@ export const InboxSubHeader = ({
                   <button
                     ref={sortButtonRef}
                     type="button"
-                    onClick={() => setShowSortDropdown((o) => !o)}
+                    onClick={toggleSortDropdown}
                     className={cn(
                       'h-8 shrink-0 rounded-full border pl-3 pr-[9px] inline-flex items-center gap-1 text-sm font-normal transition-colors',
                       'border-border bg-background text-foreground hover:bg-muted'
@@ -345,10 +368,10 @@ export const InboxSubHeader = ({
                   'ring-1 ring-black/5 dark:ring-white/10'
                 )}
                 style={{ left: `${sortMenuPosition.left}px`, top: `${sortMenuPosition.top}px` }}
-                initial={{ opacity: 0, y: -4, scale: 0.98 }}
+                initial={lockSortMenuForCapture ? false : { opacity: 0, y: -4, scale: 0.98 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={{ opacity: 0, y: -4, scale: 0.98 }}
-                transition={{ duration: 0.15 }}
+                transition={{ duration: lockSortMenuForCapture ? 0 : 0.15 }}
               >
                 {SORT_OPTIONS.map((opt) => (
                   <button
@@ -358,7 +381,7 @@ export const InboxSubHeader = ({
                     aria-selected={sortOption === opt}
                     onClick={() => {
                       onSortChange(opt);
-                      setShowSortDropdown(false);
+                      if (!lockSortMenuForCapture) setShowSortDropdown(false);
                     }}
                     className={cn(
                       'flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-sm transition-colors',
@@ -423,7 +446,7 @@ export const InboxSubHeader = ({
         <div className="relative min-w-0 w-fit" ref={sortRef}>
           <button
             type="button"
-            onClick={() => setShowSortDropdown((o) => !o)}
+            onClick={toggleSortDropdown}
             className={cn(toolbarPill({ state: 'idle' }))}
             aria-expanded={showSortDropdown}
             aria-haspopup="listbox"
@@ -442,6 +465,7 @@ export const InboxSubHeader = ({
           <AnimatePresence>
             {showSortDropdown && (
               <motion.div
+                ref={sortDropdownRef}
                 id={sortListId}
                 role="listbox"
                 aria-label="Sort by"
@@ -450,10 +474,10 @@ export const InboxSubHeader = ({
                   'border border-border bg-popover text-popover-foreground shadow-lg',
                   'ring-1 ring-black/5 dark:ring-white/10'
                 )}
-                initial={{ opacity: 0, y: -4, scale: 0.98 }}
+                initial={lockSortMenuForCapture ? false : { opacity: 0, y: -4, scale: 0.98 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={{ opacity: 0, y: -4, scale: 0.98 }}
-                transition={{ duration: 0.15 }}
+                transition={{ duration: lockSortMenuForCapture ? 0 : 0.15 }}
               >
                 {SORT_OPTIONS.map((opt) => (
                   <button
@@ -463,7 +487,7 @@ export const InboxSubHeader = ({
                     aria-selected={sortOption === opt}
                     onClick={() => {
                       onSortChange(opt);
-                      setShowSortDropdown(false);
+                      if (!lockSortMenuForCapture) setShowSortDropdown(false);
                     }}
                     className={cn(
                       'flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-sm transition-colors',

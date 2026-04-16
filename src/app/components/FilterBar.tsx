@@ -20,6 +20,8 @@ interface FilterBarProps {
   onSelect?: (id: string) => void;
   onFilterClick?: () => void;
   activeFilterCount?: number;
+  /** When true, the filter button is non-interactive and shown in a muted style (e.g. Daily chip on Matches). */
+  filterButtonDisabled?: boolean;
 }
 
 const DEFAULT_FILTERS = [
@@ -38,10 +40,12 @@ export const FilterBar = ({
   onSelect,
   onFilterClick,
   activeFilterCount = 0,
+  filterButtonDisabled = false,
 }: FilterBarProps) => {
   const [internalSelected, setInternalSelected] = useState(filters[0]?.id);
   
   const currentSelected = selectedId || internalSelected;
+  const filterActiveVisual = !filterButtonDisabled && activeFilterCount > 0;
 
   const handleSelect = (id: string) => {
     setInternalSelected(id);
@@ -85,14 +89,28 @@ export const FilterBar = ({
           <div className="absolute left-0 top-0 bottom-0 z-20 flex items-center pl-4 w-[58px] bg-gradient-to-r from-background from-90% to-transparent pointer-events-none pb-2">
             <button
               type="button"
+              disabled={filterButtonDisabled}
               onClick={onFilterClick}
-              aria-label="Open filters"
+              aria-label={filterButtonDisabled ? 'Filters unavailable for Daily matches' : 'Open filters'}
               className={cn(
                 "h-8 w-8 rounded-full border flex items-center justify-center bg-background pointer-events-auto transition-colors",
-                activeFilterCount > 0 ? "border-primary bg-primary/5" : "border-border hover:bg-muted"
+                filterButtonDisabled
+                  ? "cursor-not-allowed border-muted bg-muted disabled:opacity-100"
+                  : filterActiveVisual
+                    ? "border-primary bg-primary/5"
+                    : "border-border hover:bg-muted"
               )}
             >
-              <FilterIcon className={cn("w-4 h-4 translate-y-[0.5px]", activeFilterCount > 0 ? "text-primary" : "text-foreground")} />
+              <FilterIcon
+                className={cn(
+                  "w-4 h-4 translate-y-[0.5px]",
+                  filterButtonDisabled
+                    ? "text-muted-foreground"
+                    : filterActiveVisual
+                      ? "text-primary"
+                      : "text-foreground"
+                )}
+              />
             </button>
           </div>
         )}

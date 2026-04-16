@@ -1,7 +1,7 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../../utils/cn';
-import type { FilterExperienceVersion } from './filters/sharedFilters';
+import type { FilterExperienceVersion, PremiumLockPromptPresentation } from './filters/sharedFilters';
 
 // ─── Current User Persona ───────────────────────────────────────────
 export interface CurrentUserPersona {
@@ -73,6 +73,14 @@ export interface ExperimentSettingsPanelProps {
   onUseInboxSimulationChange?: (next: boolean) => void;
   currentPersona?: CurrentUserPersona;
   onPersonaChange?: (p: CurrentUserPersona) => void;
+  showFilterTabs?: boolean;
+  onShowFilterTabsChange?: (next: boolean) => void;
+  premiumRowStyle?: 'chevron' | 'badge';
+  onPremiumRowStyleChange?: (next: 'chevron' | 'badge') => void;
+  premiumIndicatorGlyph?: 'crown' | 'lock';
+  onPremiumIndicatorGlyphChange?: (next: 'crown' | 'lock') => void;
+  premiumLockPromptPresentation?: PremiumLockPromptPresentation;
+  onPremiumLockPromptPresentationChange?: (next: PremiumLockPromptPresentation) => void;
 }
 
 export const ExperimentSettingsPanel = ({
@@ -84,6 +92,14 @@ export const ExperimentSettingsPanel = ({
   onUseInboxSimulationChange,
   currentPersona = USER_PERSONAS[0],
   onPersonaChange,
+  showFilterTabs = false,
+  onShowFilterTabsChange,
+  premiumRowStyle = 'badge',
+  onPremiumRowStyleChange,
+  premiumIndicatorGlyph = 'lock',
+  onPremiumIndicatorGlyphChange,
+  premiumLockPromptPresentation = 'nested-bottom-sheet',
+  onPremiumLockPromptPresentationChange,
 }: ExperimentSettingsPanelProps) => {
   return (
     <AnimatePresence>
@@ -197,6 +213,183 @@ export const ExperimentSettingsPanel = ({
                       <span style={{ fontSize: '11px', fontWeight: 600 }}>{persona.displayName}</span>
                       <span className="text-muted-foreground block truncate" style={{ fontSize: '9px' }}>
                         {persona.description}
+                      </span>
+                    </div>
+                    {isActive && (
+                      <div className="w-3.5 h-3.5 rounded-full bg-primary flex items-center justify-center shrink-0">
+                        <svg width="8" height="8" viewBox="0 0 8 8" fill="none">
+                          <path d="M1.5 4L3.2 5.7L6.5 2.3" stroke="white" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                      </div>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="h-px bg-border/60 my-2 mx-2" />
+
+            {/* ── Filter Tabs toggle ── */}
+            <button
+              type="button"
+              onClick={() => onShowFilterTabsChange?.(!showFilterTabs)}
+              className={cn(
+                'flex items-center gap-2.5 px-2.5 py-2 rounded-xl text-left transition-colors',
+                showFilterTabs ? 'bg-primary/10 text-primary' : 'hover:bg-muted text-foreground'
+              )}
+              aria-pressed={showFilterTabs}
+            >
+              <span
+                className={cn(
+                  'min-w-[22px] h-[20px] rounded-md flex items-center justify-center shrink-0 px-1',
+                  showFilterTabs ? 'bg-primary text-white' : 'bg-muted text-muted-foreground'
+                )}
+                style={{ fontSize: '9px', fontWeight: 700 }}
+              >
+                TAB
+              </span>
+              <div className="flex-1 min-w-0">
+                <span style={{ fontSize: '11px', fontWeight: 600 }}>Refine / Get more Matches tabs</span>
+                <span className="text-muted-foreground block truncate" style={{ fontSize: '9px' }}>
+                  Show segmented tab control in filter sheet header
+                </span>
+              </div>
+              <div
+                className={cn(
+                  'w-3.5 h-3.5 rounded-full border flex items-center justify-center shrink-0',
+                  showFilterTabs ? 'bg-primary border-primary' : 'border-border'
+                )}
+                aria-hidden
+              >
+                {showFilterTabs && (
+                  <svg width="8" height="8" viewBox="0 0 8 8" fill="none">
+                    <path d="M1.5 4L3.2 5.7L6.5 2.3" stroke="white" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                )}
+              </div>
+            </button>
+
+            {/* ── Premium row style toggle ── */}
+            <div className="flex flex-col gap-0.5">
+              {(['chevron', 'badge'] as const).map((style) => {
+                const isActive = premiumRowStyle === style;
+                return (
+                  <button
+                    key={style}
+                    type="button"
+                    onClick={() => onPremiumRowStyleChange?.(style)}
+                    className={cn(
+                      'flex items-center gap-2.5 px-2.5 py-2 rounded-xl text-left transition-colors',
+                      isActive ? 'bg-primary/10 text-primary' : 'hover:bg-muted text-foreground'
+                    )}
+                  >
+                    <span
+                      className={cn(
+                        'min-w-[22px] h-[20px] rounded-md flex items-center justify-center shrink-0 px-1',
+                        isActive ? 'bg-primary text-white' : 'bg-muted text-muted-foreground'
+                      )}
+                      style={{ fontSize: '9px', fontWeight: 700 }}
+                    >
+                      {style === 'chevron' ? '›' : '👑'}
+                    </span>
+                    <div className="flex-1 min-w-0">
+                      <span style={{ fontSize: '11px', fontWeight: 600 }}>
+                        {style === 'chevron' ? 'Premium — Crown + Chevron' : 'Premium — Badge at end'}
+                      </span>
+                      <span className="text-muted-foreground block truncate" style={{ fontSize: '9px' }}>
+                        {style === 'chevron' ? '🔴 Label Count ›' : 'Label Count 🔴'}
+                      </span>
+                    </div>
+                    {isActive && (
+                      <div className="w-3.5 h-3.5 rounded-full bg-primary flex items-center justify-center shrink-0">
+                        <svg width="8" height="8" viewBox="0 0 8 8" fill="none">
+                          <path d="M1.5 4L3.2 5.7L6.5 2.3" stroke="white" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                      </div>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* ── Premium badge icon (crown vs lock) ── */}
+            <div className="flex flex-col gap-0.5 mt-1">
+              {(['crown', 'lock'] as const).map((glyph) => {
+                const isActive = premiumIndicatorGlyph === glyph;
+                return (
+                  <button
+                    key={glyph}
+                    type="button"
+                    onClick={() => onPremiumIndicatorGlyphChange?.(glyph)}
+                    className={cn(
+                      'flex items-center gap-2.5 px-2.5 py-2 rounded-xl text-left transition-colors',
+                      isActive ? 'bg-primary/10 text-primary' : 'hover:bg-muted text-foreground'
+                    )}
+                  >
+                    <span
+                      className={cn(
+                        'min-w-[22px] h-[20px] rounded-md flex items-center justify-center shrink-0 px-1',
+                        isActive ? 'bg-primary text-white' : 'bg-muted text-muted-foreground'
+                      )}
+                      style={{ fontSize: '9px', fontWeight: 700 }}
+                    >
+                      {glyph === 'crown' ? '👑' : '🔒'}
+                    </span>
+                    <div className="flex-1 min-w-0">
+                      <span style={{ fontSize: '11px', fontWeight: 600 }}>
+                        {glyph === 'crown' ? 'Premium badge: Crown' : 'Premium badge: Lock'}
+                      </span>
+                      <span className="text-muted-foreground block truncate" style={{ fontSize: '9px' }}>
+                        {glyph === 'crown'
+                          ? 'Red circle + crown in filter rows and left nav'
+                          : 'Lock only (no circle) in filter rows and left nav'}
+                      </span>
+                    </div>
+                    {isActive && (
+                      <div className="w-3.5 h-3.5 rounded-full bg-primary flex items-center justify-center shrink-0">
+                        <svg width="8" height="8" viewBox="0 0 8 8" fill="none">
+                          <path d="M1.5 4L3.2 5.7L6.5 2.3" stroke="white" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                      </div>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* ── Premium lock prompt (floating card vs nested sheet) ── */}
+            <div className="flex flex-col gap-0.5 mt-1">
+              {(['floating-card', 'nested-bottom-sheet'] as const).map((mode) => {
+                const isActive = premiumLockPromptPresentation === mode;
+                return (
+                  <button
+                    key={mode}
+                    type="button"
+                    onClick={() => onPremiumLockPromptPresentationChange?.(mode)}
+                    className={cn(
+                      'flex items-center gap-2.5 px-2.5 py-2 rounded-xl text-left transition-colors',
+                      isActive ? 'bg-primary/10 text-primary' : 'hover:bg-muted text-foreground'
+                    )}
+                  >
+                    <span
+                      className={cn(
+                        'min-w-[22px] h-[20px] rounded-md flex items-center justify-center shrink-0 px-1',
+                        isActive ? 'bg-primary text-white' : 'bg-muted text-muted-foreground'
+                      )}
+                      style={{ fontSize: '9px', fontWeight: 700 }}
+                    >
+                      {mode === 'floating-card' ? '▢' : '▭'}
+                    </span>
+                    <div className="flex-1 min-w-0">
+                      <span style={{ fontSize: '11px', fontWeight: 600 }}>
+                        {mode === 'floating-card'
+                          ? 'Premium prompt: Floating card'
+                          : 'Premium prompt: Nested bottom sheet'}
+                      </span>
+                      <span className="text-muted-foreground block truncate" style={{ fontSize: '9px' }}>
+                        {mode === 'floating-card'
+                          ? 'Red-bordered card over the right pane (current)'
+                          : 'Extra dim + sheet on top of the filter sheet; no red frame'}
                       </span>
                     </div>
                     {isActive && (

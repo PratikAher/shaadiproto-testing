@@ -31,7 +31,7 @@ export interface ChipProps
   description?: string;
   iconLeft?: React.ReactNode;
   iconRight?: React.ReactNode;
-  onClick?: () => void;
+  onClick?: React.MouseEventHandler<HTMLDivElement>;
 }
 
 const Chip = React.forwardRef<HTMLDivElement, ChipProps>(

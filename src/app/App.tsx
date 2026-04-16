@@ -100,14 +100,22 @@ import type { ChatConversation, OnlineUser, ChatMessage } from '../data/mockChat
 
 // MeowUI App
 export default function App() {
+  /** Figma HTML capture: full reload clears React state; use `?figmaCaptureInboxSortOpen=1` (before `#`) to re-open Inbox sort menu for snapshots. */
+  const figmaCaptureInboxSortOpen = useMemo(() => {
+    if (typeof window === 'undefined') return false;
+    return new URLSearchParams(window.location.search).has('figmaCaptureInboxSortOpen');
+  }, []);
+
   /* Theme + navigation state - MeowUI */
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [isCurrentUserPremium, setIsCurrentUserPremium] = useState(CURRENT_USER.isPremium);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [useGreenGradient, setUseGreenGradient] = useState(true);
   
-  // Navigation State
-  const [activeMainTab, setActiveMainTab] = useState<'home' | 'matches' | 'inbox' | 'chat' | 'premium'>('matches');
+  // Navigation State — when figmaCaptureInboxSortOpen, start on Inbox for capture-after-reload
+  const [activeMainTab, setActiveMainTab] = useState<'home' | 'matches' | 'inbox' | 'chat' | 'premium'>(() =>
+    figmaCaptureInboxSortOpen ? 'inbox' : 'matches'
+  );
   const [activeDesignSection, setActiveDesignSection] = useState<'menu' | 'foundations' | 'components' | 'inputs' | 'icons' | 'pictorials' | 'animations' | 'profile_images'>('menu');
   const [activeScreen, setActiveScreen] = useState<'profile_card' | 'onboarding' | 'profile_for' | 'registration' | 'connect_message' | 'edit_profile' | 'sia_onboarding' | 'sia_onboarding_2' | 'premium_upgrade' | 'chat_version_one' | null>(null);
   const previousTabRef = useRef<'home' | 'matches' | 'inbox' | 'chat'>('matches');
@@ -132,7 +140,9 @@ export default function App() {
   const [useInboxSimulation, setUseInboxSimulation] = useState(false);
   
   // Inbox Filter, Sort & View State
-  const [inboxSortOption, setInboxSortOption] = useState<SortOption>('recommended');
+  const [inboxSortOption, setInboxSortOption] = useState<SortOption>(() =>
+    figmaCaptureInboxSortOpen ? 'oldest' : 'recommended'
+  );
   const [inboxViewMode, setInboxViewMode] = useState<ViewMode>('card');
   const [inboxFilters, setInboxFilters] = useState<SharedFilterState>(defaultBaseline);
   const [showInboxFilterSheet, setShowInboxFilterSheet] = useState(false);
@@ -392,13 +402,7 @@ export default function App() {
     }
     if (filters.countryGrewUp.length > 0) {
       const g = normalizeCountry(profile.countryGrewUp || profile.family?.nativePlace);
-      const wantsIndia = filters.countryGrewUp.includes('India');
-      const wantsOther = filters.countryGrewUp.includes('Other');
-      if (wantsIndia && !wantsOther && g !== 'india') return false;
-      if (wantsOther && !wantsIndia && (!g || g === 'india')) return false;
-      if (!wantsIndia && !wantsOther) {
-        if (!g || !filters.countryGrewUp.some((sel) => normalizeCountry(sel) === g)) return false;
-      }
+      if (!g || !filters.countryGrewUp.some((sel) => normalizeCountry(sel) === g)) return false;
     }
     if (filters.state.length > 0) {
       const st = profile.location?.state || profile.state;
@@ -444,13 +448,16 @@ export default function App() {
     }
 
     if (filters.manglik.length > 0) {
-      const pm = normalizeText(profile.manglik || '');
-      const manglikMatch = filters.manglik.some((sel) => {
-        if (sel === 'yes') return pm === 'yes';
-        if (sel === 'no') return pm === 'no';
-        if (sel === 'unknown') return pm !== 'yes' && pm !== 'no';
-        return false;
-      });
+      const raw = normalizeText(profile.manglik || '');
+      const profileManglik =
+        raw === 'yes'
+          ? 'manglik'
+          : raw === 'no'
+            ? 'non_manglik'
+            : raw === 'unknown'
+              ? 'dont_know'
+              : raw;
+      const manglikMatch = filters.manglik.some((sel) => normalizeText(sel) === profileManglik);
       if (!manglikMatch) return false;
     }
 
@@ -603,7 +610,13 @@ export default function App() {
   const [showStats, setShowStats] = useState(false); // Credits + char count toggle
   const [showSubtitle, setShowSubtitle] = useState(true); // Subtitle toggle
   const [showExperimentSettingsPanel, setShowExperimentSettingsPanel] = useState(false);
-  const [filterExperienceVersion, setFilterExperienceVersion] = useState<FilterExperienceVersion>('option1');
+  const [filterExperienceVersion, setFilterExperienceVersion] = useState<FilterExperienceVersion>('option4');
+  const [showFilterTabs, setShowFilterTabs] = useState(false);
+  const [premiumRowStyle, setPremiumRowStyle] = useState<'chevron' | 'badge'>('badge');
+  const [premiumIndicatorGlyph, setPremiumIndicatorGlyph] = useState<'crown' | 'lock'>('lock');
+  const [premiumLockPromptPresentation, setPremiumLockPromptPresentation] = useState<
+    'floating-card' | 'nested-bottom-sheet'
+  >('nested-bottom-sheet');
   const handlePersonaChange = useCallback((p: CurrentUserPersona) => {
     setCurrentUserPersona(p);
     setIsCurrentUserPremium(p.isPremium);
@@ -1372,6 +1385,14 @@ export default function App() {
           onUseInboxSimulationChange={setUseInboxSimulation}
           currentPersona={currentUserPersona}
           onPersonaChange={handlePersonaChange}
+          showFilterTabs={showFilterTabs}
+          onShowFilterTabsChange={setShowFilterTabs}
+          premiumRowStyle={premiumRowStyle}
+          onPremiumRowStyleChange={setPremiumRowStyle}
+          premiumIndicatorGlyph={premiumIndicatorGlyph}
+          onPremiumIndicatorGlyphChange={setPremiumIndicatorGlyph}
+          premiumLockPromptPresentation={premiumLockPromptPresentation}
+          onPremiumLockPromptPresentationChange={setPremiumLockPromptPresentation}
         />
 
         <PromisingMatchesControllerModal
@@ -1446,6 +1467,7 @@ export default function App() {
                   onSelect={setMatchesFilter}
                   onFilterClick={() => setShowMatchesFilterSheet(true)}
                   activeFilterCount={matchesActiveFilterCount}
+                  filterButtonDisabled={matchesFilter === 'daily'}
                   filters={[
                     {
                       id: 'search',
@@ -3057,6 +3079,7 @@ export default function App() {
                       isCurrentUserPremium={isCurrentUserPremium}
                       filterExperienceVersion={filterExperienceVersion}
                       isScrolled={inboxSubHeaderScrolled}
+                      openSortMenuForFigmaCapture={figmaCaptureInboxSortOpen}
                       quickChipState={{
                         verified: inboxFilters.verified,
                         withPhoto: inboxFilters.withPhoto,
@@ -3271,6 +3294,10 @@ export default function App() {
           currentUserIsOutsideIndia={currentUserPersona.isOutsideIndia}
           currentUserReligion={currentUserPersona.religion}
           currentUserPersonaId={currentUserPersona.id}
+          showFilterTabs={matchesFilter === 'matches'}
+          premiumRowStyle={premiumRowStyle}
+          premiumIndicatorGlyph={premiumIndicatorGlyph}
+          premiumLockPromptPresentation={premiumLockPromptPresentation}
         />
         <SharedFilterBottomSheet
           isOpen={showInboxFilterSheet}
@@ -3288,6 +3315,10 @@ export default function App() {
           currentUserIsOutsideIndia={currentUserPersona.isOutsideIndia}
           currentUserReligion={currentUserPersona.religion}
           currentUserPersonaId={currentUserPersona.id}
+          showFilterTabs={showFilterTabs}
+          premiumRowStyle={premiumRowStyle}
+          premiumIndicatorGlyph={premiumIndicatorGlyph}
+          premiumLockPromptPresentation={premiumLockPromptPresentation}
         />
 
         {/* ═══ Premium Overlay from Filters (preserve filter sheet state) ═══ */}
