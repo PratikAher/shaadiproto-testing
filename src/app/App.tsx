@@ -1450,7 +1450,7 @@ export default function App() {
         {/* Removed pt-[64px] since Header is now relative */}
         <main 
           className={cn(
-            "flex-1 w-full bg-background",
+            "flex-1 w-full min-h-0 bg-background",
             (activeMainTab === 'matches' || activeMainTab === 'inbox')
               ? "overflow-hidden flex flex-col" 
               : "overflow-y-auto overflow-x-hidden scrollbar-hide"
@@ -1462,11 +1462,11 @@ export default function App() {
                 : 0,
           }}
         >
-          <div className={cn("min-h-full", (activeMainTab === 'matches' || activeMainTab === 'inbox') ? "h-full flex flex-col" : "")}>
+          <div className={cn("min-h-full", (activeMainTab === 'matches' || activeMainTab === 'inbox') ? "h-full min-h-0 flex flex-col" : "")}>
             
             {/* TAB: MATCHES */}
             {activeMainTab === 'matches' && (
-              <div className="flex flex-col h-full animate-in fade-in slide-in-from-bottom-4 duration-500">
+              <div className="flex flex-col h-full min-h-0 animate-in fade-in slide-in-from-bottom-4 duration-500">
                 <FilterBar 
                   selectedId={matchesFilter}
                   onSelect={setMatchesFilter}
@@ -1509,7 +1509,7 @@ export default function App() {
                     </div>
                   </div>
                 )}
-                <div className="flex-1 overflow-hidden relative">
+                <div className="flex-1 min-h-0 overflow-hidden relative">
                    <MatchesView
                      currentFilter={matchesFilter}
                      onConnect={handleConnect}

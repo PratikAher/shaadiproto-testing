@@ -55,7 +55,7 @@ export const MatchesView = ({
 
   return (
     <div
-      className="w-full h-full overflow-y-auto snap-y snap-mandatory scrollbar-hide"
+      className="w-full h-full min-h-0 overflow-y-auto snap-y snap-mandatory scrollbar-hide"
       style={{ scrollBehavior: 'smooth' }}
     >
       {profiles.length > 0 ? (
@@ -70,7 +70,7 @@ export const MatchesView = ({
             return (
               <div
                 key={profile.id}
-                className="w-full h-full snap-start flex items-center justify-center px-2 py-2"
+                className="w-full h-full min-h-0 snap-start flex items-stretch justify-center px-2 py-2 box-border"
                 style={{ scrollSnapStop: 'always' }}
               >
                 <ProfileCard
