@@ -457,7 +457,12 @@ export default function App() {
             : raw === 'unknown'
               ? 'dont_know'
               : raw;
-      const manglikMatch = filters.manglik.some((sel) => normalizeText(sel) === profileManglik);
+      const manglikMatch = filters.manglik.some((sel) => {
+        const s = normalizeText(sel);
+        // "Yes" (value manglik) includes full Manglik and Angshik — same bucket as typical partner preference.
+        if (s === 'manglik') return profileManglik === 'manglik' || profileManglik === 'angshik_manglik';
+        return s === profileManglik;
+      });
       if (!manglikMatch) return false;
     }
 

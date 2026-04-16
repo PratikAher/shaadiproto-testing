@@ -1599,10 +1599,16 @@ function getCommunityOptionsForPersona(personaId?: string): FilterOption[] {
 }
 
 /** Shared persona overrides for Option 4 / Option 5 discovery layouts (community, location, family country, basic block). */
+const OPTION4_MANGLIK_OPTIONS: FilterOption[] = [
+  { value: 'manglik', label: 'Yes' },
+  { value: 'non_manglik', label: 'No' },
+  { value: 'dont_know', label: "Don't Know" },
+];
+
 function mapOptionDiscoveryCategoriesForPersona(
   categories: IterationCategoryConfig[],
   personaId?: string,
-  options?: { forceMaritalFilters?: boolean }
+  options?: { forceMaritalFilters?: boolean; simplifiedManglik?: boolean }
 ): IterationCategoryConfig[] {
   const communityOptions = getCommunityOptionsForPersona(personaId);
   const partnerCountryOptions = getOption4PartnerCountryOptionsForPersona(personaId);
@@ -1613,9 +1619,13 @@ function mapOptionDiscoveryCategoriesForPersona(
     : shouldShowMaritalFiltersForPersona(personaId)
       ? pick('ageRange', 'heightRange', 'profileManagedBy', 'maritalStatus', 'partnerHasChildren', 'manglik')
       : pick('ageRange', 'heightRange', 'profileManagedBy', 'manglik');
-  const basicFilters = basicFiltersRaw.map((f) =>
-    f.key === 'partnerHasChildren' ? { ...f, label: 'Has Children' } : f
-  );
+  const basicFilters = basicFiltersRaw.map((f) => {
+    if (f.key === 'partnerHasChildren') return { ...f, label: 'Has Children' };
+    if (f.key === 'manglik' && options?.simplifiedManglik) {
+      return { ...f, label: 'Manglik', options: OPTION4_MANGLIK_OPTIONS };
+    }
+    return f;
+  });
 
   return categories.map((cat) => {
     if (cat.id === 'basic') {
@@ -1650,7 +1660,10 @@ function mapOptionDiscoveryCategoriesForPersona(
 }
 
 function buildOption4CategoriesForPersona(personaId?: string): IterationCategoryConfig[] {
-  return mapOptionDiscoveryCategoriesForPersona(OPTION4_CATEGORIES, personaId, { forceMaritalFilters: true });
+  return mapOptionDiscoveryCategoriesForPersona(OPTION4_CATEGORIES, personaId, {
+    forceMaritalFilters: true,
+    simplifiedManglik: true,
+  });
 }
 
 function buildOption5CategoriesForPersona(personaId?: string): IterationCategoryConfig[] {
