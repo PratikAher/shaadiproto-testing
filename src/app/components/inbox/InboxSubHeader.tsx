@@ -52,7 +52,7 @@ export const FILTER_LABELS: Record<keyof InboxFilterState, string> = {
   income: 'Income',
   location: 'Location',
   religion: 'Religion',
-  career: 'Career',
+  career: 'Work',
 };
 
 // ─────────────────────────────────────────────────────────────────────────────

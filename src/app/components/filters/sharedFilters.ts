@@ -528,11 +528,11 @@ export const SHARED_FILTER_CATEGORIES: SharedFilterCategory[] = [
     filters: [
       {
         key: 'workingWith',
-        label: 'Employed in',
+        label: 'Sector',
         controlType: 'multi-select',
         searchable: true,
         priority: 5,
-        searchPlaceholder: 'Search employment type',
+        searchPlaceholder: 'Search sector',
         options: WORKING_WITH_OPTIONS.map((o) => ({ value: o.value, label: o.label, aliases: o.aliases })),
         fieldContract: {
           dataSource: 'derived',
@@ -544,11 +544,11 @@ export const SHARED_FILTER_CATEGORIES: SharedFilterCategory[] = [
       },
       {
         key: 'professionArea',
-        label: 'Occupation area',
+        label: 'Industry',
         controlType: 'multi-select',
         searchable: true,
         priority: 8,
-        searchPlaceholder: 'Search occupation area',
+        searchPlaceholder: 'Search industry',
         options: PROFESSION_AREA_OPTIONS.map((o) => ({ value: o.value, label: o.label, aliases: o.aliases })),
         fieldContract: {
           dataSource: 'profile',
@@ -911,7 +911,7 @@ export function getIterationCategories(iteration: FilterExperienceVersion, perso
         { id: 'basic', title: 'Basic Details', filters: basicDetailsFilters },
         { id: 'religion', title: 'Religion & Community', filters: pick('religion', 'community', 'manglik') },
         { id: 'education', title: 'Education', filters: pick('qualification', 'educationField') },
-        { id: 'career', title: 'Career', filters: pick('workingWith', 'professionArea', 'profession') },
+        { id: 'career', title: 'Work', filters: pick('workingWith', 'professionArea', 'profession') },
         { id: 'income', title: 'Income', filters: pick('incomeRangeInr', 'incomeRangeUsd') },
         { id: 'location', title: 'Location', filters: pick('country', 'state', 'city') },
         { id: 'lifestyle_family', title: 'Lifestyle & Family', filters: pick('diet', 'familyType', 'financialStatus') },
@@ -929,7 +929,7 @@ export function getIterationCategories(iteration: FilterExperienceVersion, perso
         { id: 'religion_community', title: 'Religion & Community', filters: pick('religion', 'community', 'manglik') },
         { id: 'mother_tongue', title: 'Mother Tongue', filters: pick('motherTongue') },
         { id: 'education', title: 'Education', filters: pick('qualification', 'educationField') },
-        { id: 'career', title: 'Career', filters: pick('workingWith', 'professionArea', 'profession') },
+        { id: 'career', title: 'Work', filters: pick('workingWith', 'professionArea', 'profession') },
         { id: 'income', title: 'Income', filters: pick('incomeRangeInr', 'incomeRangeUsd') },
         { id: 'location', title: 'Location', filters: pick('country', 'state', 'city') },
         { id: 'lifestyle_family', title: 'Lifestyle & Family', filters: pick('diet', 'familyType', 'financialStatus') },
@@ -946,7 +946,7 @@ export function getIterationCategories(iteration: FilterExperienceVersion, perso
         { id: 'religion_community', title: 'Religion & Community', filters: pick('religion', 'community', 'manglik') },
         { id: 'mother_tongue', title: 'Mother Tongue', filters: pick('motherTongue') },
         { id: 'education', title: 'Education', filters: pick('qualification', 'educationField') },
-        { id: 'career', title: 'Career', filters: pick('workingWith', 'professionArea', 'profession') },
+        { id: 'career', title: 'Work', filters: pick('workingWith', 'professionArea', 'profession') },
         { id: 'income', title: 'Income', filters: pick('incomeRangeInr', 'incomeRangeUsd') },
         { id: 'location', title: 'Location', filters: pick('country', 'state', 'city') },
         { id: 'lifestyle_family', title: 'Lifestyle & Family', filters: pick('diet', 'familyType', 'financialStatus') },
@@ -1297,14 +1297,14 @@ const OPTION4_CATEGORIES: IterationCategoryConfig[] = [
   },
   {
     id: 'career',
-    title: 'Career',
+    title: 'Work',
     filters: [
       {
         key: 'workingWith' as SharedFilterKey,
-        label: 'Employed in',
+        label: 'Sector',
         controlType: 'multi-select',
         priority: 10,
-        searchPlaceholder: 'Search employment type',
+        searchPlaceholder: 'Search sector',
         options: [
           { value: 'Private Company', label: 'Private Company (999)' },
           { value: 'Business / Self Employed', label: 'Business / self-employed (543)' },
@@ -1317,11 +1317,11 @@ const OPTION4_CATEGORIES: IterationCategoryConfig[] = [
       },
       {
         key: 'professionArea' as SharedFilterKey,
-        label: 'Occupation area',
+        label: 'Industry',
         controlType: 'multi-select',
         searchable: true,
         priority: 20,
-        searchPlaceholder: 'Search occupation area',
+        searchPlaceholder: 'Search industry',
         options: [
           { value: 'Accounting, Banking & Finance', label: 'Accounting, Banking & Finance (432)' },
           { value: 'Administration & HR', label: 'Administration & HR (287)' },
