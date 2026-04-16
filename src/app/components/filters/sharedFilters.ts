@@ -1599,10 +1599,11 @@ function getCommunityOptionsForPersona(personaId?: string): FilterOption[] {
 }
 
 /** Shared persona overrides for Option 4 / Option 5 discovery layouts (community, location, family country, basic block). */
+/** Counts align with legacy manglik rows: Yes = Manglik + Angshik Manglik. */
 const OPTION4_MANGLIK_OPTIONS: FilterOption[] = [
-  { value: 'manglik', label: 'Yes' },
-  { value: 'non_manglik', label: 'No' },
-  { value: 'dont_know', label: "Don't Know" },
+  { value: 'manglik', label: 'Yes (42)' },
+  { value: 'non_manglik', label: 'No (67)' },
+  { value: 'dont_know', label: "Don't Know (9)" },
 ];
 
 function mapOptionDiscoveryCategoriesForPersona(
