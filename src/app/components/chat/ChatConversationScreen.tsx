@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useMemo } from 'react';
+import React, { useState, useRef, useEffect, useLayoutEffect, useMemo, useCallback } from 'react';
 import { cn } from '../../../utils/cn';
 import { VerificationFilledIcon } from '../icons';
 import GroupBackIcon from '../../../imports/Group';
@@ -16,13 +16,152 @@ import chatBackgroundImage from '../../../assets/chat/chat-background.png';
 
 export type ConnectionStatus = 'accepted' | 'inbox_pending' | 'connect_sent' | 'not_connected';
 
+/** Min chip width (px). No artificial max: width grows until copy fits in STARTER_MAX_TEXT_LINES or hits the viewport cap. */
+const CONVERSATION_STARTER_MIN_W = 200;
+const STARTER_LINE_HEIGHT_PX = 18;
+const STARTER_MAX_TEXT_LINES = 3;
+const STARTER_TEXT_BOX_H = STARTER_LINE_HEIGHT_PX * STARTER_MAX_TEXT_LINES;
+const STARTER_CHIP_FIXED_H = 12 + STARTER_TEXT_BOX_H + 14;
+
+function starterViewportMaxW(): number {
+  if (typeof document === 'undefined') return 800;
+  return Math.max(CONVERSATION_STARTER_MIN_W, document.documentElement.clientWidth - 52);
+}
+
 /** Shown until the user sends their first outgoing message in this thread. */
 function getConversationStarters(peerFirstName: string): string[] {
   return [
-    `Hi ${peerFirstName}! I loved reading your profile and would enjoy chatting when you have a moment.`,
-    `Hey ${peerFirstName}, hope your week's going well! I'd love to hear more about your interests.`,
-    `Hello ${peerFirstName}! I think we'd have a lot to talk about — would you like to connect here?`,
+    `Hi ${peerFirstName}! I loved reading your profile and would really enjoy chatting whenever you have a little time.`,
+    `Hey ${peerFirstName}, hope your week is going well. I'd love to learn more about your interests and what you are hoping to find here.`,
+    `Hello ${peerFirstName}! You seem really genuine, and I'd be glad to connect and get to know you better whenever you have a moment.`,
   ];
+}
+
+/** Figma Chat 💬 — iridescent wash at ~4% over white (stops: coral → violet → blue → teal). */
+const CONVERSATION_STARTER_GRADIENT =
+  'linear-gradient(136deg, hsl(358, 65%, 72%) 0%, hsl(277, 52%, 74%) 32%, hsl(205, 100%, 62%) 66%, hsl(187, 72%, 52%) 100%)';
+
+function ConversationStarterChip({
+  text,
+  onPick,
+  textareaRef,
+}: {
+  text: string;
+  onPick: (t: string) => void;
+  textareaRef: React.RefObject<HTMLTextAreaElement | null>;
+}) {
+  const btnRef = useRef<HTMLButtonElement>(null);
+  const textRef = useRef<HTMLSpanElement>(null);
+  const [chipWidth, setChipWidth] = useState(CONVERSATION_STARTER_MIN_W);
+
+  const measureWidth = useCallback(() => {
+    const btn = btnRef.current;
+    const span = textRef.current;
+    if (!btn || !span) return;
+
+    const maxW = starterViewportMaxW();
+    const targetScrollH = STARTER_TEXT_BOX_H;
+
+    span.style.height = 'auto';
+    span.style.maxHeight = 'none';
+    span.style.overflow = 'visible';
+
+    const scrollHAt = (w: number) => {
+      btn.style.width = `${w}px`;
+      void btn.offsetHeight;
+      return span.scrollHeight;
+    };
+
+    let widthPx = CONVERSATION_STARTER_MIN_W;
+    if (scrollHAt(CONVERSATION_STARTER_MIN_W) > targetScrollH + 0.5) {
+      let lo = CONVERSATION_STARTER_MIN_W;
+      let hi = maxW;
+      let ans = maxW;
+      while (lo <= hi) {
+        const mid = Math.floor((lo + hi) / 2);
+        const sh = scrollHAt(mid);
+        if (sh <= targetScrollH + 0.5) {
+          ans = mid;
+          hi = mid - 1;
+        } else {
+          lo = mid + 1;
+        }
+      }
+      widthPx = ans;
+    }
+
+    span.style.height = `${STARTER_TEXT_BOX_H}px`;
+    span.style.maxHeight = `${STARTER_TEXT_BOX_H}px`;
+    span.style.overflow = 'hidden';
+    btn.style.removeProperty('width');
+    setChipWidth(widthPx);
+  }, [text]);
+
+  useLayoutEffect(() => {
+    measureWidth();
+  }, [measureWidth]);
+
+  useEffect(() => {
+    window.addEventListener('resize', measureWidth);
+    return () => window.removeEventListener('resize', measureWidth);
+  }, [measureWidth]);
+
+  return (
+    <button
+      ref={btnRef}
+      type="button"
+      onClick={() => {
+        onPick(text);
+        requestAnimationFrame(() => {
+          textareaRef.current?.focus();
+          const ta = textareaRef.current;
+          if (ta) {
+            ta.setSelectionRange(text.length, text.length);
+          }
+        });
+      }}
+      className={cn(
+        'relative isolate shrink-0 mb-1 cursor-pointer overflow-visible text-left box-border',
+        'rounded-tl-2xl rounded-tr-2xl rounded-bl-2xl rounded-br-none',
+        'shadow-[0_1px_3px_rgba(0,0,0,0.06)]',
+        'transition-[box-shadow,transform] active:scale-[0.99]',
+        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/25 focus-visible:ring-offset-2 focus-visible:ring-offset-background',
+      )}
+      style={{
+        width: chipWidth,
+        minWidth: CONVERSATION_STARTER_MIN_W,
+        height: STARTER_CHIP_FIXED_H,
+        border: '1px solid transparent',
+        background: `linear-gradient(#ffffff, #ffffff) padding-box, ${CONVERSATION_STARTER_GRADIENT} border-box`,
+        WebkitBackgroundClip: 'padding-box, border-box',
+        backgroundClip: 'padding-box, border-box',
+        padding: '12px 14px 14px',
+        fontSize: 13,
+        lineHeight: `${STARTER_LINE_HEIGHT_PX}px`,
+        color: '#41404d',
+      }}
+    >
+      <span
+        className="pointer-events-none absolute inset-px z-0 overflow-hidden rounded-tl-[15px] rounded-tr-[15px] rounded-bl-[15px] rounded-br-none"
+        aria-hidden
+      >
+        <span
+          className="absolute inset-0"
+          style={{
+            background: CONVERSATION_STARTER_GRADIENT,
+            opacity: 0.04,
+          }}
+        />
+      </span>
+      <span
+        ref={textRef}
+        className="relative z-[1] block w-full whitespace-normal text-left break-words"
+        style={{ height: STARTER_TEXT_BOX_H, overflow: 'hidden' }}
+      >
+        {text}
+      </span>
+    </button>
+  );
 }
 
 interface ChatConversationScreenProps {
@@ -589,9 +728,18 @@ export const ChatConversationScreen = ({ conversation, onBack, onFirstMessageSen
     }
   };
 
-  // Auto-resize textarea as user types
-  useEffect(() => {
+  // Auto-resize textarea; when the footer grows, keep the thread pinned to the bottom if the user was already there
+  // (conversation starters / multiline compose otherwise cover the latest messages).
+  useLayoutEffect(() => {
+    const scrollEl = scrollRef.current;
     const ta = textareaRef.current;
+
+    let stickToBottom = true;
+    if (scrollEl) {
+      const dist = scrollEl.scrollHeight - scrollEl.scrollTop - scrollEl.clientHeight;
+      stickToBottom = dist < 64;
+    }
+
     if (ta) {
       ta.style.height = '0px'; // collapse to measure true scrollHeight
       const scrollH = ta.scrollHeight;
@@ -599,6 +747,10 @@ export const ChatConversationScreen = ({ conversation, onBack, onFirstMessageSen
       ta.style.height = `${Math.min(scrollH, 144)}px`;
       // Switch to scroll if max height reached
       ta.style.overflow = scrollH > 144 ? 'auto' : 'hidden';
+    }
+
+    if (scrollEl && stickToBottom) {
+      scrollEl.scrollTop = scrollEl.scrollHeight - scrollEl.clientHeight;
     }
   }, [inputText]);
 
@@ -608,7 +760,10 @@ export const ChatConversationScreen = ({ conversation, onBack, onFirstMessageSen
   const showSafetyBanner = messages.length <= initialMessageCount && messages.length <= 2;
 
   const hasSentFromMe = messages.some((m) => m.senderId === 'me');
-  const showConversationStarters = localStatus !== 'connect_sent' && !hasSentFromMe;
+  /** Hide chips only after connect is pending with no reply UI, or once thread has grown. Keep showing on short accepted threads so seed data (with one reply) still surfaces suggestions. */
+  const isShortAcceptedThread = localStatus === 'accepted' && messages.length <= 2;
+  const showConversationStarters =
+    localStatus !== 'connect_sent' && (!hasSentFromMe || isShortAcceptedThread);
   const conversationStarters = useMemo(() => getConversationStarters(firstName), [firstName]);
 
   const { isKeyboardVisible } = useKeyboardVisible();
@@ -782,28 +937,12 @@ export const ChatConversationScreen = ({ conversation, onBack, onFirstMessageSen
               aria-label="Conversation starters"
             >
               {conversationStarters.map((text) => (
-                <button
+                <ConversationStarterChip
                   key={text}
-                  type="button"
-                  onClick={() => {
-                    setInputText(text);
-                    requestAnimationFrame(() => {
-                      textareaRef.current?.focus();
-                      const ta = textareaRef.current;
-                      if (ta) {
-                        ta.setSelectionRange(text.length, text.length);
-                      }
-                    });
-                  }}
-                  className={cn(
-                    'shrink-0 cursor-pointer rounded-2xl border border-[#dfe0e3] bg-[#f9f9fb] text-left',
-                    'max-w-[min(260px,calc(100vw-40px))] transition-colors active:bg-neutral-100',
-                    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 focus-visible:ring-offset-2 focus-visible:ring-offset-background',
-                  )}
-                  style={{ fontSize: 13, lineHeight: '18px', color: '#41404d', padding: '10px 12px' }}
-                >
-                  <span className="line-clamp-3">{text}</span>
-                </button>
+                  text={text}
+                  textareaRef={textareaRef}
+                  onPick={(t) => setInputText(t)}
+                />
               ))}
             </div>
           )}
