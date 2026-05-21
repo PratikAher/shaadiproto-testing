@@ -4,8 +4,8 @@
     {
       "name": "shaadi-dev",
       "runtimeExecutable": "/bin/sh",
-      "runtimeArgs": ["-c", "PATH=/usr/local/bin:$PATH npm run dev -- --port 5173"],
-      "port": 5173
+      "runtimeArgs": ["-c", "PATH=/usr/local/bin:$PATH npm run dev -- --port 5180 --strictPort"],
+      "port": 5180
     }
   ]
 }

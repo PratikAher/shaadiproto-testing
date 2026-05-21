@@ -399,3 +399,13 @@
   --radius-md: var(--radius-md);
   --radius-sm: var(--radius-sm);
 }
+
+/* Chat — AI conversation starter skeleton shimmer */
+@keyframes chat-starter-shimmer-slide {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(220%);
+  }
+}

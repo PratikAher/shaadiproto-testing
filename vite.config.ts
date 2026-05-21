@@ -5,6 +5,12 @@ import react from '@vitejs/plugin-react'
 import figmaAssetFallback from './vite-plugin-figma-asset-fallback'
 
 export default defineConfig({
+  // Ensures assets resolve when the prototype is hosted from a sub-path
+  // (e.g. GitHub Pages / static preview URLs) instead of domain root.
+  base: './',
+  server: {
+    port: 5174,
+  },
   plugins: [
     // Figma asset fallback — resolves figma:asset/* imports to Unsplash URLs
     figmaAssetFallback(),

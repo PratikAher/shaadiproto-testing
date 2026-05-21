@@ -81,7 +81,35 @@ export interface ExperimentSettingsPanelProps {
   onPremiumIndicatorGlyphChange?: (next: 'crown' | 'lock') => void;
   premiumLockPromptPresentation?: PremiumLockPromptPresentation;
   onPremiumLockPromptPresentationChange?: (next: PremiumLockPromptPresentation) => void;
+  /** Force the Inbox → Received view into a specific state for demo. */
+  inboxDevStateOverride?: 'auto' | 'A' | 'B' | 'C' | 'D' | 'E';
+  onInboxDevStateOverrideChange?: (next: 'auto' | 'A' | 'B' | 'C' | 'D' | 'E') => void;
+  /** Which copy version (v1/v2) the Tier empty-state should render. */
+  inboxCopyVersion?: 'v1' | 'v2';
+  onInboxCopyVersionChange?: (next: 'v1' | 'v2') => void;
 }
+
+const INBOX_COPY_OPTIONS: Array<{
+  id: 'v1' | 'v2';
+  label: string;
+  desc: string;
+}> = [
+  { id: 'v1', label: 'Copy v1 (current)', desc: '"You’ve viewed all your top Requests"' },
+  { id: 'v2', label: 'Copy v2 (alt)', desc: '"You are all caught up" / "Nothing new for now"' },
+];
+
+const INBOX_STATE_OPTIONS: Array<{
+  id: 'auto' | 'A' | 'B' | 'C' | 'D' | 'E';
+  label: string;
+  desc: string;
+}> = [
+  { id: 'auto', label: 'Auto (natural)', desc: 'Derive state from actions & counts' },
+  { id: 'A', label: 'Top Requests', desc: 'Stack/list of top requests' },
+  { id: 'B', label: 'Top + More', desc: 'Cleared top, More available' },
+  { id: 'C', label: 'Top (0) + More', desc: 'No top yet, More available' },
+  { id: 'D', label: 'Top + More (0)', desc: 'Cleared top, no More left' },
+  { id: 'E', label: 'All caught up', desc: 'Nothing in either pool' },
+];
 
 export const ExperimentSettingsPanel = ({
   isOpen,
@@ -100,6 +128,10 @@ export const ExperimentSettingsPanel = ({
   onPremiumIndicatorGlyphChange,
   premiumLockPromptPresentation = 'nested-bottom-sheet',
   onPremiumLockPromptPresentationChange,
+  inboxDevStateOverride = 'auto',
+  onInboxDevStateOverrideChange,
+  inboxCopyVersion = 'v1',
+  onInboxCopyVersionChange,
 }: ExperimentSettingsPanelProps) => {
   return (
     <AnimatePresence>
@@ -123,6 +155,104 @@ export const ExperimentSettingsPanel = ({
               maxHeight: 'calc(100% - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 96px)',
             }}
           >
+            {/* ── Inbox State (Top + More Requests prototype) ── */}
+            <p className="text-muted-foreground px-2 pt-0.5" style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.06em' }}>
+              INBOX STATE
+            </p>
+            <p className="text-muted-foreground/60 px-2 pb-1.5 mt-0.5" style={{ fontSize: '9px', fontWeight: 400 }}>
+              Force a specific Top / More Requests state for demo
+            </p>
+            <div className="flex flex-col gap-0.5">
+              {INBOX_STATE_OPTIONS.map((item) => {
+                const isActive = inboxDevStateOverride === item.id;
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => onInboxDevStateOverrideChange?.(item.id)}
+                    className={cn(
+                      'flex items-center gap-2.5 px-2.5 py-2 rounded-xl text-left transition-colors',
+                      isActive ? 'bg-primary/10 text-primary' : 'hover:bg-muted text-foreground'
+                    )}
+                  >
+                    <span
+                      className={cn(
+                        'min-w-[22px] h-[20px] rounded-md flex items-center justify-center shrink-0 px-1',
+                        isActive ? 'bg-primary text-white' : 'bg-muted text-muted-foreground'
+                      )}
+                      style={{ fontSize: '9px', fontWeight: 700 }}
+                    >
+                      {item.id === 'auto' ? '~' : item.id}
+                    </span>
+                    <div className="flex-1 min-w-0">
+                      <span style={{ fontSize: '11px', fontWeight: 600 }}>{item.label}</span>
+                      <span className="text-muted-foreground block truncate" style={{ fontSize: '9px' }}>
+                        {item.desc}
+                      </span>
+                    </div>
+                    {isActive && (
+                      <div className="w-3.5 h-3.5 rounded-full bg-primary flex items-center justify-center shrink-0">
+                        <svg width="8" height="8" viewBox="0 0 8 8" fill="none">
+                          <path d="M1.5 4L3.2 5.7L6.5 2.3" stroke="white" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                      </div>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="h-px bg-border/60 my-2 mx-2" />
+
+            {/* ── Inbox Copy (Top + More tier empty-state copy variant) ── */}
+            <p className="text-muted-foreground px-2 pt-0.5" style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.06em' }}>
+              INBOX COPY
+            </p>
+            <p className="text-muted-foreground/60 px-2 pb-1.5 mt-0.5" style={{ fontSize: '9px', fontWeight: 400 }}>
+              Test alternate headline / sub-line copy on the tier states
+            </p>
+            <div className="flex flex-col gap-0.5">
+              {INBOX_COPY_OPTIONS.map((item) => {
+                const isActive = inboxCopyVersion === item.id;
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => onInboxCopyVersionChange?.(item.id)}
+                    className={cn(
+                      'flex items-center gap-2.5 px-2.5 py-2 rounded-xl text-left transition-colors',
+                      isActive ? 'bg-primary/10 text-primary' : 'hover:bg-muted text-foreground'
+                    )}
+                  >
+                    <span
+                      className={cn(
+                        'min-w-[22px] h-[20px] rounded-md flex items-center justify-center shrink-0 px-1',
+                        isActive ? 'bg-primary text-white' : 'bg-muted text-muted-foreground'
+                      )}
+                      style={{ fontSize: '9px', fontWeight: 700 }}
+                    >
+                      {item.id === 'v1' ? '1' : '2'}
+                    </span>
+                    <div className="flex-1 min-w-0">
+                      <span style={{ fontSize: '11px', fontWeight: 600 }}>{item.label}</span>
+                      <span className="text-muted-foreground block truncate" style={{ fontSize: '9px' }}>
+                        {item.desc}
+                      </span>
+                    </div>
+                    {isActive && (
+                      <div className="w-3.5 h-3.5 rounded-full bg-primary flex items-center justify-center shrink-0">
+                        <svg width="8" height="8" viewBox="0 0 8 8" fill="none">
+                          <path d="M1.5 4L3.2 5.7L6.5 2.3" stroke="white" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                      </div>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="h-px bg-border/60 my-2 mx-2" />
+
             <p className="text-muted-foreground px-2 pt-0.5" style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.06em' }}>
               FILTER EXPERIENCE
             </p>

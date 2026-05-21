@@ -2253,9 +2253,14 @@ function FilterCategoryNavRow({
       type="button"
       onClick={onClick}
       className={cn(
+        // Option 4/5: active row visually "bridges" into the right pane with a rounded corner,
+        // while still living inside the left strip (matches native app reference).
         'font-sans flex w-full min-h-[48px] items-center py-[10px] pl-[14px] text-left transition-colors relative border-b border-[color:var(--color-filter-divider)]',
         hasTrailing ? 'pr-[10px]' : 'pr-4',
-        active ? 'bg-white' : 'bg-[color:var(--color-filter-nav-strip-bg)] hover:bg-[color:var(--color-filter-nav-strip-hover)]'
+        active
+          // Reference shows only the top-right notch (not a full pill).
+          ? 'bg-white z-[2] -mr-px rounded-tr-[14px]'
+          : 'bg-[color:var(--color-filter-nav-strip-bg)] hover:bg-[color:var(--color-filter-nav-strip-hover)]'
       )}
     >
       {active ? (
@@ -2713,6 +2718,14 @@ export const SharedFilterBottomSheet = ({
               {/* Refine: split pane · Get more Matches: dedicated panel */}
               {!showFilterTabs || activeTab === 'refine' ? (
                 <div className="relative flex min-h-0 flex-1 overflow-hidden">
+                  {/* Option 4/5: persistent divider between panes. The active left row overlaps this line to form the rounded notch. */}
+                  {useO45LeftNav && (
+                    <div
+                      className="pointer-events-none absolute inset-y-0 z-[1] w-px bg-[color:var(--color-filter-divider)]"
+                      style={{ left: 120 }}
+                      aria-hidden
+                    />
+                  )}
                   <div
                     className={cn(
                       'hide-scrollbar w-[120px] shrink-0 overflow-y-auto pb-[112px]',

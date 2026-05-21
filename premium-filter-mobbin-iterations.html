@@ -1,0 +1,1208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Premium Filter Iterations</title>
+  <style>
+    :root {
+      --ink: #171827;
+      --muted: #747684;
+      --line: #e8ebf0;
+      --canvas: #f3f6fb;
+      --brand-pink: #ee3a88;
+      --brand-red: #f44d43;
+      --gold: #c69222;
+      --gold-soft: #fff5dc;
+      --green: #006c5a;
+      --navy: #11182c;
+      --shadow: 0 22px 60px rgba(25, 31, 52, .16);
+      --radius: 42px;
+      --font: "Avenir Next", "Nunito Sans", "Trebuchet MS", sans-serif;
+      --serif: Georgia, "Times New Roman", serif;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background:
+        radial-gradient(circle at top left, rgba(238, 58, 136, .18), transparent 34%),
+        radial-gradient(circle at 85% 12%, rgba(246, 187, 72, .22), transparent 28%),
+        linear-gradient(135deg, #f9fbff 0%, #edf3fa 48%, #f8f3ec 100%);
+      color: var(--ink);
+      font-family: var(--font);
+    }
+
+    .page {
+      width: min(1660px, calc(100vw - 40px));
+      margin: 0 auto;
+      padding: 42px 0 64px;
+    }
+
+    .hero {
+      display: grid;
+      grid-template-columns: 1.1fr .9fr;
+      gap: 28px;
+      align-items: end;
+      margin-bottom: 30px;
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      width: fit-content;
+      padding: 8px 12px;
+      border: 1px solid rgba(198, 146, 34, .28);
+      border-radius: 999px;
+      background: rgba(255, 250, 238, .76);
+      color: #8a6310;
+      font-size: 13px;
+      font-weight: 800;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+
+    .spark {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #f7d579, #b47a12);
+      box-shadow: 0 0 18px rgba(198, 146, 34, .65);
+    }
+
+    h1 {
+      max-width: 820px;
+      margin: 18px 0 12px;
+      font-size: clamp(38px, 5vw, 76px);
+      line-height: .94;
+      letter-spacing: -.065em;
+    }
+
+    .hero p {
+      max-width: 760px;
+      margin: 0;
+      color: #5c6070;
+      font-size: 18px;
+      line-height: 1.55;
+    }
+
+    .research {
+      padding: 20px;
+      border: 1px solid rgba(23, 24, 39, .08);
+      border-radius: 28px;
+      background: rgba(255, 255, 255, .72);
+      box-shadow: 0 16px 40px rgba(25, 31, 52, .08);
+      backdrop-filter: blur(20px);
+    }
+
+    .research strong {
+      display: block;
+      margin-bottom: 10px;
+      font-size: 14px;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      color: #8a6310;
+    }
+
+    .research span {
+      display: inline-flex;
+      margin: 0 7px 8px 0;
+      padding: 8px 10px;
+      border-radius: 999px;
+      background: #f5f0e7;
+      color: #514633;
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(7, 380px);
+      gap: 28px;
+      overflow-x: auto;
+      overflow-y: visible;
+      padding: 6px 14px 34px;
+      scroll-snap-type: x mandatory;
+      scroll-padding-inline: 14px;
+    }
+
+    .concept {
+      scroll-snap-align: start;
+      width: 380px;
+    }
+
+    .caption {
+      min-height: 92px;
+      margin: 0 0 14px;
+      padding: 16px;
+      border-radius: 24px;
+      background: rgba(255, 255, 255, .72);
+      box-shadow: 0 14px 36px rgba(25, 31, 52, .08);
+    }
+
+    .caption b {
+      display: block;
+      margin-bottom: 7px;
+      font-size: 16px;
+      letter-spacing: -.02em;
+    }
+
+    .caption p {
+      margin: 0;
+      color: #656978;
+      font-size: 13px;
+      line-height: 1.38;
+    }
+
+    .phone {
+      position: relative;
+      width: 360px;
+      height: 780px;
+      margin: 0 auto;
+      overflow: hidden;
+      border-radius: var(--radius);
+      background: #fff;
+      box-shadow: var(--shadow);
+      outline: 10px solid #0a0a0a;
+    }
+
+    .phone-inner {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .status {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 52px;
+      padding: 0 34px;
+      color: #08090d;
+      font-size: 15px;
+      font-weight: 900;
+    }
+
+    .signals {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+    }
+
+    .bars {
+      display: inline-grid;
+      grid-template-columns: repeat(4, 4px);
+      gap: 3px;
+      align-items: end;
+      height: 16px;
+    }
+
+    .bars i {
+      display: block;
+      width: 4px;
+      border-radius: 3px;
+      background: currentColor;
+    }
+
+    .bars i:nth-child(1) { height: 6px; }
+    .bars i:nth-child(2) { height: 9px; }
+    .bars i:nth-child(3) { height: 12px; }
+    .bars i:nth-child(4) { height: 15px; }
+
+    .wifi {
+      position: relative;
+      width: 18px;
+      height: 13px;
+    }
+
+    .wifi::before,
+    .wifi::after {
+      content: "";
+      position: absolute;
+      left: 50%;
+      border: 3px solid currentColor;
+      border-color: currentColor transparent transparent transparent;
+      border-radius: 50%;
+      transform: translateX(-50%);
+    }
+
+    .wifi::before {
+      top: 0;
+      width: 18px;
+      height: 18px;
+    }
+
+    .wifi::after {
+      top: 6px;
+      width: 8px;
+      height: 8px;
+    }
+
+    .battery {
+      width: 25px;
+      height: 13px;
+      border: 2px solid currentColor;
+      border-radius: 5px;
+      box-shadow: inset 0 0 0 2px #fff;
+      background: currentColor;
+    }
+
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 18px 28px 12px;
+    }
+
+    .title {
+      color: #1d2038;
+      font-size: 25px;
+      font-weight: 900;
+      letter-spacing: -.045em;
+    }
+
+    .close {
+      position: relative;
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: #eef2f6;
+    }
+
+    .close::before,
+    .close::after {
+      content: "";
+      position: absolute;
+      top: 17px;
+      left: 9px;
+      width: 18px;
+      height: 2px;
+      border-radius: 2px;
+      background: #2d303b;
+    }
+
+    .close::before { transform: rotate(45deg); }
+    .close::after { transform: rotate(-45deg); }
+
+    .segmented {
+      display: flex;
+      align-items: center;
+      width: 260px;
+      min-height: 36px;
+      margin: 4px auto 18px;
+      padding: 3px;
+      border-radius: 999px;
+      background: #edf2f7;
+    }
+
+    .segmented span {
+      flex: 1;
+      padding: 8px 0;
+      border-radius: 999px;
+      text-align: center;
+      color: #4a4c59;
+      font-size: 15px;
+      font-weight: 800;
+    }
+
+    .segmented .active {
+      background: #fff;
+      color: #1e2431;
+      box-shadow: 0 3px 10px rgba(24, 29, 42, .14);
+    }
+
+    .filters {
+      margin: 0 28px;
+      border-radius: 26px;
+      background: #fff;
+      border: 1px solid #e1e5eb;
+      overflow: hidden;
+    }
+
+    .row {
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      min-height: 68px;
+      padding: 0 22px;
+      border-bottom: 1px solid #edf0f3;
+      font-size: 18px;
+      font-weight: 900;
+      letter-spacing: -.025em;
+    }
+
+    .row:last-child {
+      border-bottom: 0;
+    }
+
+    .row small {
+      display: block;
+      margin-top: 4px;
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0;
+    }
+
+    .lock {
+      position: relative;
+      width: 18px;
+      height: 16px;
+      border: 2px solid #777b88;
+      border-radius: 5px;
+    }
+
+    .lock::before {
+      content: "";
+      position: absolute;
+      left: 3px;
+      top: -10px;
+      width: 8px;
+      height: 10px;
+      border: 2px solid #777b88;
+      border-bottom: 0;
+      border-radius: 8px 8px 0 0;
+    }
+
+    .lock::after {
+      content: "";
+      position: absolute;
+      top: 6px;
+      left: 7px;
+      width: 3px;
+      height: 3px;
+      border-radius: 50%;
+      background: #777b88;
+    }
+
+    .cta {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      min-height: 56px;
+      margin: auto 28px 30px;
+      border-radius: 999px;
+      background: linear-gradient(100deg, var(--brand-pink), var(--brand-red));
+      color: #fff;
+      font-size: 19px;
+      font-weight: 900;
+      letter-spacing: -.025em;
+      box-shadow: 0 14px 24px rgba(240, 67, 99, .25);
+    }
+
+    .arrow {
+      position: relative;
+      width: 19px;
+      height: 2px;
+      background: currentColor;
+      border-radius: 2px;
+    }
+
+    .arrow::after {
+      content: "";
+      position: absolute;
+      right: 0;
+      top: -5px;
+      width: 10px;
+      height: 10px;
+      border-right: 2px solid currentColor;
+      border-top: 2px solid currentColor;
+      transform: rotate(45deg);
+    }
+
+    .footer-copy {
+      margin: auto 30px 14px;
+      text-align: center;
+      color: #343640;
+      font-size: 16px;
+      font-weight: 700;
+      letter-spacing: -.02em;
+    }
+
+    .home {
+      position: absolute;
+      left: 50%;
+      bottom: 9px;
+      width: 112px;
+      height: 4px;
+      border-radius: 999px;
+      background: #101015;
+      transform: translateX(-50%);
+    }
+
+    .v1 .phone-inner {
+      background: linear-gradient(#fff 0 30%, #f3f7fb 68%, #fff 100%);
+    }
+
+    .v1 .intro {
+      margin: 0 28px 18px;
+      text-align: center;
+    }
+
+    .v1 h2 {
+      margin: 18px 0 4px;
+      font-size: 28px;
+      line-height: 1.08;
+      letter-spacing: -.055em;
+    }
+
+    .v1 h2 span {
+      color: var(--gold);
+    }
+
+    .v1 .intro p {
+      margin: 0;
+      color: #767986;
+      font-size: 15px;
+      font-weight: 800;
+    }
+
+    .v1 .filters {
+      box-shadow: 0 18px 42px rgba(40, 52, 78, .07);
+    }
+
+    .v2 .phone-inner {
+      background: #fff;
+    }
+
+    .v2 .proof {
+      margin: 2px 28px 18px;
+      padding: 18px;
+      border-radius: 28px;
+      background:
+        linear-gradient(135deg, rgba(255, 246, 221, .98), rgba(255, 255, 255, .98)),
+        radial-gradient(circle at right top, rgba(241, 71, 97, .18), transparent 55%);
+      border: 1px solid rgba(210, 165, 64, .34);
+    }
+
+    .v2 .proof b {
+      display: block;
+      font-size: 25px;
+      line-height: 1.04;
+      letter-spacing: -.055em;
+    }
+
+    .v2 .proof p {
+      margin: 8px 0 0;
+      color: #655a45;
+      font-size: 14px;
+      line-height: 1.35;
+      font-weight: 700;
+    }
+
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 9px;
+      border-radius: 999px;
+      background: #fff3d3;
+      color: #986c10;
+      font-size: 11px;
+      font-weight: 900;
+      letter-spacing: .02em;
+    }
+
+    .v2 .row {
+      min-height: 74px;
+    }
+
+    .v2 .lock {
+      border-color: var(--gold);
+    }
+
+    .v2 .lock::before {
+      border-color: var(--gold);
+    }
+
+    .v2 .lock::after {
+      background: var(--gold);
+    }
+
+    .v3 .phone-inner {
+      background:
+        radial-gradient(circle at 50% -6%, rgba(253, 213, 117, .7), transparent 38%),
+        linear-gradient(#fff 0%, #fff 35%, #fff8ec 100%);
+    }
+
+    .v3 .concierge {
+      margin: 6px 28px 16px;
+      padding: 20px 20px 18px;
+      border-radius: 30px;
+      color: #fff;
+      background:
+        radial-gradient(circle at right top, rgba(255, 255, 255, .22), transparent 30%),
+        linear-gradient(145deg, #101524, #263149 58%, #946c18);
+      box-shadow: 0 24px 46px rgba(33, 33, 50, .22);
+    }
+
+    .v3 .concierge .tag {
+      width: fit-content;
+      margin-bottom: 18px;
+      padding: 6px 9px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, .14);
+      color: #ffe4a5;
+      font-size: 11px;
+      font-weight: 900;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+
+    .v3 .concierge h2 {
+      margin: 0;
+      font-family: var(--serif);
+      font-size: 30px;
+      line-height: .98;
+      letter-spacing: -.05em;
+      font-weight: 700;
+    }
+
+    .v3 .concierge p {
+      margin: 10px 0 0;
+      color: rgba(255, 255, 255, .72);
+      font-size: 13px;
+      line-height: 1.4;
+      font-weight: 700;
+    }
+
+    .v3 .filters {
+      border: 0;
+      box-shadow: 0 18px 46px rgba(33, 33, 50, .09);
+    }
+
+    .v3 .row::before {
+      content: "";
+      width: 8px;
+      height: 8px;
+      margin-right: 10px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #e4bd53, #9c6f15);
+      box-shadow: 0 0 0 5px #fff5df;
+    }
+
+    .v3 .row {
+      justify-content: flex-start;
+      gap: 10px;
+    }
+
+    .v3 .row .lock {
+      margin-left: auto;
+    }
+
+    .v3 .cta {
+      background: linear-gradient(100deg, #171827, #946c18);
+      box-shadow: 0 18px 30px rgba(23, 24, 39, .2);
+    }
+
+    .v4 .phone-inner {
+      background: #f6f8fb;
+    }
+
+    .v4 .compare {
+      margin: 4px 28px 14px;
+      padding: 14px;
+      border-radius: 26px;
+      background: #fff;
+      border: 1px solid #e4e7ed;
+    }
+
+    .v4 .compare-title {
+      margin-bottom: 12px;
+      color: #6a6e7b;
+      text-align: center;
+      font-size: 13px;
+      font-weight: 900;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+    }
+
+    .meter {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .meter div {
+      padding: 12px 10px;
+      border-radius: 18px;
+      background: #f3f5f8;
+      text-align: center;
+      color: #7c808d;
+      font-weight: 900;
+      font-size: 13px;
+    }
+
+    .meter .hot {
+      background: linear-gradient(135deg, #fff1ca, #fff);
+      border: 1px solid rgba(198, 146, 34, .35);
+      color: #9f7014;
+      box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .8);
+    }
+
+    .v4 .filters {
+      border: 0;
+      background: transparent;
+      overflow: visible;
+    }
+
+    .v4 .row {
+      min-height: 62px;
+      margin-bottom: 10px;
+      border: 1px solid #e8ebf0;
+      border-radius: 22px;
+      background: #fff;
+      box-shadow: 0 10px 22px rgba(25, 31, 52, .05);
+    }
+
+    .v4 .row:last-child {
+      margin-bottom: 0;
+    }
+
+    .v4 .row small {
+      color: #9f7014;
+    }
+
+    .v5 .phone-inner {
+      color: #f8f5ed;
+      background:
+        radial-gradient(circle at 50% -6%, rgba(235, 68, 110, .52), transparent 30%),
+        linear-gradient(180deg, #111523 0%, #1b2434 45%, #0e1019 100%);
+    }
+
+    .v5 .status,
+    .v5 .title {
+      color: #fff;
+    }
+
+    .v5 .close {
+      background: rgba(255, 255, 255, .12);
+    }
+
+    .v5 .close::before,
+    .v5 .close::after {
+      background: #fff;
+    }
+
+    .v5 .segmented {
+      background: rgba(255, 255, 255, .1);
+    }
+
+    .v5 .segmented span {
+      color: rgba(255, 255, 255, .62);
+    }
+
+    .v5 .segmented .active {
+      color: #1d2038;
+      background: #fff;
+    }
+
+    .v5 .vault {
+      margin: 8px 28px 18px;
+      padding: 18px;
+      border-radius: 28px;
+      background: linear-gradient(135deg, rgba(255, 255, 255, .13), rgba(255, 255, 255, .05));
+      border: 1px solid rgba(255, 255, 255, .14);
+    }
+
+    .v5 .vault b {
+      display: block;
+      color: #fff;
+      font-size: 26px;
+      line-height: 1.05;
+      letter-spacing: -.055em;
+    }
+
+    .v5 .vault p {
+      margin: 8px 0 0;
+      color: rgba(255, 255, 255, .62);
+      font-size: 13px;
+      line-height: 1.45;
+      font-weight: 700;
+    }
+
+    .v5 .filters {
+      border-color: rgba(255, 255, 255, .12);
+      background: rgba(255, 255, 255, .08);
+      backdrop-filter: blur(18px);
+    }
+
+    .v5 .row {
+      color: #fff;
+      border-color: rgba(255, 255, 255, .09);
+    }
+
+    .v5 .row small {
+      color: rgba(255, 255, 255, .54);
+    }
+
+    .v5 .lock,
+    .v5 .lock::before {
+      border-color: rgba(255, 255, 255, .72);
+    }
+
+    .v5 .lock::after {
+      background: rgba(255, 255, 255, .72);
+    }
+
+    .v5 .cta {
+      background: #fff;
+      color: #111523;
+      box-shadow: 0 18px 30px rgba(0, 0, 0, .26);
+    }
+
+    .v5 .footer-copy {
+      color: rgba(255, 255, 255, .68);
+    }
+
+    .v5 .home {
+      background: #fff;
+    }
+
+    .v6 .phone-inner {
+      background: linear-gradient(180deg, #fff 0%, #fff 52%, #f4f8fb 100%);
+    }
+
+    .v6 .spotlight {
+      margin: 4px 28px 16px;
+      padding: 20px;
+      border-radius: 32px;
+      background:
+        linear-gradient(135deg, rgba(238, 58, 136, .1), rgba(244, 77, 67, .08)),
+        #fff;
+      border: 1px solid rgba(238, 58, 136, .18);
+      box-shadow: 0 20px 46px rgba(240, 67, 99, .12);
+    }
+
+    .v6 .spot-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+
+    .v6 .spot-top span {
+      color: #a62e5c;
+      font-size: 12px;
+      font-weight: 900;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+
+    .v6 .big-lock {
+      position: relative;
+      display: grid;
+      place-items: center;
+      width: 50px;
+      height: 50px;
+      border-radius: 18px;
+      background: linear-gradient(135deg, #ee3a88, #f44d43);
+      box-shadow: 0 12px 22px rgba(238, 58, 136, .28);
+    }
+
+    .v6 .big-lock .lock {
+      border-color: #fff;
+      transform: scale(.9);
+    }
+
+    .v6 .big-lock .lock::before {
+      border-color: #fff;
+    }
+
+    .v6 .big-lock .lock::after {
+      background: #fff;
+    }
+
+    .v6 .spotlight h2 {
+      margin: 0;
+      max-width: 230px;
+      font-size: 28px;
+      line-height: 1.02;
+      letter-spacing: -.06em;
+    }
+
+    .v6 .spotlight p {
+      margin: 10px 0 0;
+      color: #666a78;
+      font-size: 13px;
+      line-height: 1.45;
+      font-weight: 700;
+    }
+
+    .v6 .filters {
+      border: 0;
+      box-shadow: none;
+    }
+
+    .v6 .row {
+      min-height: 56px;
+      padding-inline: 0;
+      font-size: 16px;
+      border-color: #f0f1f4;
+    }
+
+    .v6 .row .chip {
+      margin-left: auto;
+      margin-right: 10px;
+      background: #f4f6fa;
+      color: #7a7e8c;
+    }
+
+    .v7 .phone-inner {
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, .95), rgba(255, 255, 255, .84)),
+        radial-gradient(circle at top right, rgba(40, 120, 103, .22), transparent 42%),
+        #f8fbf8;
+    }
+
+    .v7 .outcome {
+      margin: 4px 28px 16px;
+      display: grid;
+      gap: 10px;
+    }
+
+    .v7 .score {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 14px;
+      align-items: center;
+      padding: 16px;
+      border-radius: 26px;
+      background: #0f564c;
+      color: #fff;
+      box-shadow: 0 20px 38px rgba(15, 86, 76, .2);
+    }
+
+    .v7 .score-num {
+      display: grid;
+      place-items: center;
+      width: 66px;
+      height: 66px;
+      border-radius: 22px;
+      background: #fff;
+      color: #0f564c;
+      font-size: 24px;
+      font-weight: 950;
+      letter-spacing: -.04em;
+    }
+
+    .v7 .score b {
+      display: block;
+      font-size: 21px;
+      line-height: 1.06;
+      letter-spacing: -.04em;
+    }
+
+    .v7 .score p {
+      margin: 5px 0 0;
+      color: rgba(255, 255, 255, .72);
+      font-size: 12px;
+      line-height: 1.35;
+      font-weight: 700;
+    }
+
+    .v7 .filters {
+      border-color: rgba(15, 86, 76, .16);
+      box-shadow: 0 20px 44px rgba(15, 86, 76, .08);
+    }
+
+    .v7 .row {
+      min-height: 66px;
+    }
+
+    .v7 .row small {
+      color: #0f7668;
+    }
+
+    .v7 .cta {
+      background: #0f564c;
+      box-shadow: 0 16px 28px rgba(15, 86, 76, .24);
+    }
+
+    @media (max-width: 1180px) {
+      .hero {
+        grid-template-columns: 1fr;
+        align-items: start;
+      }
+
+      .research {
+        max-width: 760px;
+      }
+    }
+
+    @media (max-width: 760px) {
+      .page {
+        width: min(390px, calc(100vw - 24px));
+        padding-top: 24px;
+      }
+
+      .hero {
+        grid-template-columns: 1fr;
+      }
+
+      h1 {
+        font-size: 40px;
+      }
+
+      .hero p {
+        font-size: 15px;
+      }
+
+      .grid {
+        grid-template-columns: 1fr;
+        overflow: visible;
+        padding-inline: 0;
+      }
+
+      .concept {
+        width: 100%;
+      }
+
+      .phone {
+        width: 100%;
+        max-width: 360px;
+        margin: 0 auto;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <section class="hero">
+      <div>
+        <div class="eyebrow"><i class="spark"></i> Mobbin-informed premium filter explorations</div>
+        <h1>Seven ways to make locked filters feel worth unlocking.</h1>
+        <p>
+          The goal is not to redesign the whole sheet. Each direction keeps the familiar filter surface, but changes the premium signal through copy, framing, row affordance, lock treatment, and upgrade motivation.
+        </p>
+      </div>
+      <div class="research">
+        <strong>Patterns borrowed from research</strong>
+        <span>benefit-led paywall copy</span>
+        <span>tiered segmented controls</span>
+        <span>locked feature previews</span>
+        <span>bottom CTA anchoring</span>
+        <span>proof before price</span>
+        <span>premium material contrast</span>
+      </div>
+    </section>
+
+    <section class="grid" aria-label="Premium filter design iterations">
+      <article class="concept">
+        <div class="caption">
+          <b>1. Minimal Lift</b>
+          <p>Closest to your current design: clearer value copy, warmer premium wordmark, and a contained card so the lock state feels intentional.</p>
+        </div>
+        <div class="phone v1">
+          <div class="phone-inner">
+            <div class="status"><span>9:41</span><span class="signals"><span class="bars"><i></i><i></i><i></i><i></i></span><span class="wifi"></span><span class="battery"></span></span></div>
+            <div class="header"><div class="title">Filter Matches</div><div class="close"></div></div>
+            <div class="segmented"><span>All</span><span class="active">Premium</span></div>
+            <div class="intro">
+              <h2>Unlock <span>Premium</span> filters</h2>
+              <p>Shortlist matches with sharper intent signals.</p>
+            </div>
+            <div class="filters">
+              <div class="row"><span>Income</span><i class="lock"></i></div>
+              <div class="row"><span>Family location</span><i class="lock"></i></div>
+              <div class="row"><span>Residential status</span><i class="lock"></i></div>
+              <div class="row"><span>Top colleges</span><i class="lock"></i></div>
+              <div class="row"><span>Children</span><i class="lock"></i></div>
+            </div>
+            <div class="footer-copy">Find people who already fit your non-negotiables.</div>
+            <div class="cta">Upgrade to Premium <i class="arrow"></i></div>
+            <div class="home"></div>
+          </div>
+        </div>
+      </article>
+
+      <article class="concept">
+        <div class="caption">
+          <b>2. Preview The Power</b>
+          <p>Instead of only showing locked labels, each row hints at what the user can actually filter by. This makes the lock feel less vague.</p>
+        </div>
+        <div class="phone v2">
+          <div class="phone-inner">
+            <div class="status"><span>9:41</span><span class="signals"><span class="bars"><i></i><i></i><i></i><i></i></span><span class="wifi"></span><span class="battery"></span></span></div>
+            <div class="header"><div class="title">Filter Matches</div><div class="close"></div></div>
+            <div class="segmented"><span>All</span><span class="active">Premium</span></div>
+            <div class="proof">
+              <span class="chip">PREMIUM ONLY</span>
+              <b>Go beyond basics.</b>
+              <p>Unlock high-signal filters that help you avoid broad, low-intent browsing.</p>
+            </div>
+            <div class="filters">
+              <div class="row"><span>Income<small>Set annual income range</small></span><i class="lock"></i></div>
+              <div class="row"><span>Family location<small>Filter by parents' city</small></span><i class="lock"></i></div>
+              <div class="row"><span>Residential status<small>Own house, rented, NRI</small></span><i class="lock"></i></div>
+              <div class="row"><span>Top colleges<small>IIT, IIM, Ivy League and more</small></span><i class="lock"></i></div>
+              <div class="row"><span>Children<small>Match family expectations early</small></span><i class="lock"></i></div>
+            </div>
+            <div class="cta">Unlock all 5 filters <i class="arrow"></i></div>
+            <div class="home"></div>
+          </div>
+        </div>
+      </article>
+
+      <article class="concept">
+        <div class="caption">
+          <b>3. Concierge Premium</b>
+          <p>More editorial and marriage-category appropriate: premium is positioned as a calmer, more selective search assistant.</p>
+        </div>
+        <div class="phone v3">
+          <div class="phone-inner">
+            <div class="status"><span>9:41</span><span class="signals"><span class="bars"><i></i><i></i><i></i><i></i></span><span class="wifi"></span><span class="battery"></span></span></div>
+            <div class="header"><div class="title">Filter Matches</div><div class="close"></div></div>
+            <div class="segmented"><span>All</span><span class="active">Premium</span></div>
+            <div class="concierge">
+              <div class="tag">for serious shortlists</div>
+              <h2>Your private matching criteria.</h2>
+              <p>Premium filters help you screen for the details families usually discuss later.</p>
+            </div>
+            <div class="filters">
+              <div class="row"><span>Income</span><i class="lock"></i></div>
+              <div class="row"><span>Family location</span><i class="lock"></i></div>
+              <div class="row"><span>Residential status</span><i class="lock"></i></div>
+              <div class="row"><span>Top colleges</span><i class="lock"></i></div>
+              <div class="row"><span>Children</span><i class="lock"></i></div>
+            </div>
+            <div class="footer-copy">Filter gently. Decide confidently.</div>
+            <div class="cta">Upgrade for sharper matches <i class="arrow"></i></div>
+            <div class="home"></div>
+          </div>
+        </div>
+      </article>
+
+      <article class="concept">
+        <div class="caption">
+          <b>4. Compare Mode</b>
+          <p>A compact All vs Premium comparison creates contrast without adding a full paywall screen. It makes the selected tab feel consequential.</p>
+        </div>
+        <div class="phone v4">
+          <div class="phone-inner">
+            <div class="status"><span>9:41</span><span class="signals"><span class="bars"><i></i><i></i><i></i><i></i></span><span class="wifi"></span><span class="battery"></span></span></div>
+            <div class="header"><div class="title">Filter Matches</div><div class="close"></div></div>
+            <div class="segmented"><span>All</span><span class="active">Premium</span></div>
+            <div class="compare">
+              <div class="compare-title">What Premium adds</div>
+              <div class="meter">
+                <div>Basic filters<br>Age, city, height</div>
+                <div class="hot">Precision filters<br>Family, income, status</div>
+              </div>
+            </div>
+            <div class="filters">
+              <div class="row"><span>Income<small>Premium precision</small></span><i class="lock"></i></div>
+              <div class="row"><span>Family location<small>Premium precision</small></span><i class="lock"></i></div>
+              <div class="row"><span>Residential status<small>Premium precision</small></span><i class="lock"></i></div>
+              <div class="row"><span>Top colleges<small>Premium precision</small></span><i class="lock"></i></div>
+              <div class="row"><span>Children<small>Premium precision</small></span><i class="lock"></i></div>
+            </div>
+            <div class="cta">Compare less, choose better <i class="arrow"></i></div>
+            <div class="home"></div>
+          </div>
+        </div>
+      </article>
+
+      <article class="concept">
+        <div class="caption">
+          <b>5. The Premium Vault</b>
+          <p>High contrast, dramatic paywall language. Useful if you want the Premium tab to feel like an owned destination, not a disabled list.</p>
+        </div>
+        <div class="phone v5">
+          <div class="phone-inner">
+            <div class="status"><span>9:41</span><span class="signals"><span class="bars"><i></i><i></i><i></i><i></i></span><span class="wifi"></span><span class="battery"></span></span></div>
+            <div class="header"><div class="title">Filter Matches</div><div class="close"></div></div>
+            <div class="segmented"><span>All</span><span class="active">Premium</span></div>
+            <div class="vault">
+              <b>Open the filters serious members use.</b>
+              <p>These criteria are reserved for Premium so your search can get more specific, faster.</p>
+            </div>
+            <div class="filters">
+              <div class="row"><span>Income<small>Locked in Premium</small></span><i class="lock"></i></div>
+              <div class="row"><span>Family location<small>Locked in Premium</small></span><i class="lock"></i></div>
+              <div class="row"><span>Residential status<small>Locked in Premium</small></span><i class="lock"></i></div>
+              <div class="row"><span>Top colleges<small>Locked in Premium</small></span><i class="lock"></i></div>
+              <div class="row"><span>Children<small>Locked in Premium</small></span><i class="lock"></i></div>
+            </div>
+            <div class="footer-copy">Premium turns browsing into a shortlist.</div>
+            <div class="cta">Unlock Premium filters <i class="arrow"></i></div>
+            <div class="home"></div>
+          </div>
+        </div>
+      </article>
+
+      <article class="concept">
+        <div class="caption">
+          <b>6. Spotlight One Filter</b>
+          <p>Lead with the most emotionally clear filter, then reveal the rest. It creates a stronger reason to care before the list appears.</p>
+        </div>
+        <div class="phone v6">
+          <div class="phone-inner">
+            <div class="status"><span>9:41</span><span class="signals"><span class="bars"><i></i><i></i><i></i><i></i></span><span class="wifi"></span><span class="battery"></span></span></div>
+            <div class="header"><div class="title">Filter Matches</div><div class="close"></div></div>
+            <div class="segmented"><span>All</span><span class="active">Premium</span></div>
+            <div class="spotlight">
+              <div class="spot-top">
+                <span>most used premium filter</span>
+                <div class="big-lock"><i class="lock"></i></div>
+              </div>
+              <h2>Filter by income before you start shortlisting.</h2>
+              <p>Premium helps you align on practical expectations earlier in the conversation.</p>
+            </div>
+            <div class="filters">
+              <div class="row"><span>Income</span><span class="chip">featured</span><i class="lock"></i></div>
+              <div class="row"><span>Family location</span><i class="lock"></i></div>
+              <div class="row"><span>Residential status</span><i class="lock"></i></div>
+              <div class="row"><span>Top colleges</span><i class="lock"></i></div>
+              <div class="row"><span>Children</span><i class="lock"></i></div>
+            </div>
+            <div class="cta">Start with Premium <i class="arrow"></i></div>
+            <div class="home"></div>
+          </div>
+        </div>
+      </article>
+
+      <article class="concept">
+        <div class="caption">
+          <b>7. Outcome First</b>
+          <p>Frames Premium as a better matching outcome, not a bundle of locked controls. Stronger if leadership wants less "paywall" energy.</p>
+        </div>
+        <div class="phone v7">
+          <div class="phone-inner">
+            <div class="status"><span>9:41</span><span class="signals"><span class="bars"><i></i><i></i><i></i><i></i></span><span class="wifi"></span><span class="battery"></span></span></div>
+            <div class="header"><div class="title">Filter Matches</div><div class="close"></div></div>
+            <div class="segmented"><span>All</span><span class="active">Premium</span></div>
+            <div class="outcome">
+              <div class="score">
+                <div class="score-num">5x</div>
+                <div>
+                  <b>More ways to narrow your shortlist.</b>
+                  <p>Premium unlocks the filters that make each recommendation feel closer to your criteria.</p>
+                </div>
+              </div>
+            </div>
+            <div class="filters">
+              <div class="row"><span>Income<small>Align expectations</small></span><i class="lock"></i></div>
+              <div class="row"><span>Family location<small>Choose preferred cities</small></span><i class="lock"></i></div>
+              <div class="row"><span>Residential status<small>See practical fit</small></span><i class="lock"></i></div>
+              <div class="row"><span>Top colleges<small>Filter education signals</small></span><i class="lock"></i></div>
+              <div class="row"><span>Children<small>Match life stage</small></span><i class="lock"></i></div>
+            </div>
+            <div class="footer-copy">Spend less time filtering manually.</div>
+            <div class="cta">Unlock better shortlists <i class="arrow"></i></div>
+            <div class="home"></div>
+          </div>
+        </div>
+      </article>
+    </section>
+  </main>
+</body>
+</html>

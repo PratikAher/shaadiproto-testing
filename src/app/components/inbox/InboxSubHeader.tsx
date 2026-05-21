@@ -10,7 +10,7 @@ import type { FilterExperienceVersion } from '../filters/sharedFilters';
 // Types
 // ─────────────────────────────────────────────────────────────────────────────
 
-export type SortOption = 'recommended' | 'newest' | 'oldest' | 'recentlyActive';
+export type SortOption = 'recommended' | 'newest' | 'oldest';
 export type ViewMode = 'card' | 'list';
 
 export interface InboxFilterState {
@@ -39,10 +39,9 @@ const SORT_LABELS: Record<SortOption, string> = {
   recommended: 'Recommended',
   newest: 'Newest First',
   oldest: 'Oldest First',
-  recentlyActive: 'Recently Active',
 };
 
-const SORT_OPTIONS: SortOption[] = ['recommended', 'newest', 'oldest', 'recentlyActive'];
+const SORT_OPTIONS: SortOption[] = ['recommended', 'newest', 'oldest'];
 
 export const FILTER_LABELS: Record<keyof InboxFilterState, string> = {
   premiumUsers: 'Premium Users',
@@ -61,7 +60,7 @@ export const FILTER_LABELS: Record<keyof InboxFilterState, string> = {
 
 const toolbarPill = cva(
   [
-    'inline-flex h-8 min-h-8 w-full min-w-0 items-center justify-center gap-2 rounded-full border pl-[13px] pr-[11px]',
+    'inline-flex h-8 min-h-8 w-full min-w-0 items-center justify-center gap-1 rounded-full border pl-3 pr-2',
     'text-sm font-normal text-foreground transition-colors',
     'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
     'ring-offset-background',
@@ -88,6 +87,10 @@ const listViewIconClass = 'block h-5 w-5 shrink-0 -translate-x-[1px]';
 
 interface InboxSubHeaderProps {
   sortOption: SortOption;
+  /** False until the user has explicitly picked an option in the sort menu —
+   *  in the untouched default state the chip reads "Sort" instead of the
+   *  selected option's label. */
+  hasUserSelectedSort?: boolean;
   onSortChange: (sort: SortOption) => void;
   viewMode: ViewMode;
   onViewModeChange: (mode: ViewMode) => void;
@@ -109,6 +112,7 @@ interface InboxSubHeaderProps {
 
 export const InboxSubHeader = ({
   sortOption,
+  hasUserSelectedSort = false,
   onSortChange,
   viewMode,
   onViewModeChange,
@@ -401,9 +405,6 @@ export const InboxSubHeader = ({
                       ) : null}
                     </span>
                     <span>{SORT_LABELS[opt]}</span>
-                    {opt === 'recentlyActive' && !isCurrentUserPremium ? (
-                      <CrownFilledIcon className="ml-auto w-4 h-4 text-[#ff5a60] shrink-0" />
-                    ) : null}
                   </button>
                 ))}
               </motion.div>
@@ -421,22 +422,25 @@ export const InboxSubHeader = ({
         role="toolbar"
         aria-label="Inbox filters and view"
       >
-        {/* Filters — use Matches tab icon-only filter button */}
+        {/* Filters — pill: icon + "Filter" label, matched to Sort chip metrics */}
         <button
           type="button"
           onClick={onOpenFilterSheet}
           className={cn(
-            'relative h-8 w-8 shrink-0 rounded-full border flex items-center justify-center transition-colors',
-            hasActiveFilters ? 'border-primary bg-primary/5' : 'border-border hover:bg-muted'
+            'relative inline-flex h-8 min-h-8 shrink-0 items-center gap-1.5 rounded-full border pl-3 pr-3.5 text-sm font-normal transition-colors',
+            hasActiveFilters
+              ? 'border-primary bg-primary/10 text-primary font-medium hover:bg-primary/20'
+              : 'border-border bg-background text-foreground hover:bg-muted'
           )}
           aria-label="Open filters"
         >
           <FilterIcon
             className={cn(
-              'w-4 h-4 translate-y-[0.5px]',
+              'w-4 h-4 shrink-0 translate-y-[0.5px]',
               hasActiveFilters ? 'text-primary' : 'text-foreground'
             )}
           />
+          <span className="whitespace-nowrap">Filter</span>
           {hasActiveFilters ? (
             <span className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full border border-background bg-[#FF5A6A]" />
           ) : null}
@@ -452,7 +456,9 @@ export const InboxSubHeader = ({
             aria-haspopup="listbox"
             aria-controls={showSortDropdown ? sortListId : undefined}
           >
-            <span className="min-w-0 w-full whitespace-nowrap">Sort: {SORT_LABELS[sortOption]}</span>
+            <span className="min-w-0 w-full whitespace-nowrap">
+              {hasUserSelectedSort ? SORT_LABELS[sortOption] : 'Sort'}
+            </span>
             <ChevronDown
               className={cn(
                 'size-[18px] shrink-0 transition-transform text-muted-foreground',
@@ -507,9 +513,6 @@ export const InboxSubHeader = ({
                       ) : null}
                     </span>
                     <span>{SORT_LABELS[opt]}</span>
-                    {opt === 'recentlyActive' && !isCurrentUserPremium ? (
-                      <CrownFilledIcon className="ml-auto w-4 h-4 text-[#ff5a60] shrink-0" />
-                    ) : null}
                   </button>
                 ))}
               </motion.div>

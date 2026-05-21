@@ -5,6 +5,9 @@ import type { Profile } from '../matches/ProfileCard';
 export type PromisingMatchesVariant = 'option1' | 'option2' | 'option3';
 export type Option3SubVariant = '3a' | '3b' | '3c' | '3d' | '3e' | '3f' | '3g' | '3h' | '3i' | '3j' | '3k' | '3l' | '3m';
 
+/** Conversation-starter layouts above the composer (extend when adding new prototypes). */
+export type ConversationStarterVariant = 'option1';
+
 export interface PromisingMatchItem {
   profile: Profile;
   message: string;
@@ -15,8 +18,10 @@ interface PromisingMatchesControllerModalProps {
   isOpen: boolean;
   selectedVariant: PromisingMatchesVariant;
   selectedOption3Sub: Option3SubVariant;
+  selectedConversationStarterVariant: ConversationStarterVariant;
   onSelectVariant: (variant: PromisingMatchesVariant) => void;
   onSelectOption3Sub: (sub: Option3SubVariant) => void;
+  onSelectConversationStarterVariant: (variant: ConversationStarterVariant) => void;
   onClose: () => void;
 }
 
@@ -35,6 +40,10 @@ const variantMeta: Record<PromisingMatchesVariant, { title: string; subtitle: st
   option1: { title: 'Option 1', subtitle: 'Floating avatar strip' },
   option2: { title: 'Option 2', subtitle: 'Sticky inbox-style stack' },
   option3: { title: 'Option 3', subtitle: 'Creative explorations (A–M)' },
+};
+
+const conversationStarterVariantMeta: Record<ConversationStarterVariant, { title: string; subtitle: string }> = {
+  option1: { title: 'Option 1', subtitle: 'Gradient chips + shimmer (current)' },
 };
 
 const option3SubMeta: Record<Option3SubVariant, { label: string; desc: string }> = {
@@ -1026,7 +1035,14 @@ const Option2StickySection = ({
 // CONTROLLER MODAL
 // ═══════════════════════════════════════════════════════
 export const PromisingMatchesControllerModal = ({
-  isOpen, selectedVariant, selectedOption3Sub, onSelectVariant, onSelectOption3Sub, onClose,
+  isOpen,
+  selectedVariant,
+  selectedOption3Sub,
+  selectedConversationStarterVariant,
+  onSelectVariant,
+  onSelectOption3Sub,
+  onSelectConversationStarterVariant,
+  onClose,
 }: PromisingMatchesControllerModalProps) => (
   <AnimatePresence>
     {isOpen && (
@@ -1064,6 +1080,34 @@ export const PromisingMatchesControllerModal = ({
                 </button>
               );
             })}
+          </div>
+
+          <div className="border-t border-border/60 pt-3 mb-3">
+            <h3 className="text-sm font-semibold text-foreground">Conversation starters</h3>
+            <p className="text-[12px] text-muted-foreground mb-2">Suggestions above the composer in chat.</p>
+            <div className="space-y-2">
+              {(Object.keys(conversationStarterVariantMeta) as ConversationStarterVariant[]).map((csVariant) => {
+                const selected = selectedConversationStarterVariant === csVariant;
+                return (
+                  <button
+                    key={csVariant}
+                    type="button"
+                    onClick={() => {
+                      onSelectConversationStarterVariant(csVariant);
+                      onClose();
+                    }}
+                    className="w-full text-left rounded-xl border px-3 py-2 flex items-center justify-between"
+                    style={{ borderColor: selected ? 'var(--color-primary)' : 'var(--color-border)' }}
+                  >
+                    <div>
+                      <p className="text-[13px] font-medium text-foreground">{conversationStarterVariantMeta[csVariant].title}</p>
+                      <p className="text-[12px] text-muted-foreground">{conversationStarterVariantMeta[csVariant].subtitle}</p>
+                    </div>
+                    {selected && <span className="text-[12px] font-semibold text-primary">Selected</span>}
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
           {selectedVariant === 'option3' && (

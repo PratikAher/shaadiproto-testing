@@ -76,8 +76,8 @@ import { FullProfileView } from './components/matches/FullProfileView';
 import { EditProfileView } from './components/matches/EditProfileView';
 import { CURRENT_USER } from '../data/currentUser';
 import { SideDrawer } from './components/SideDrawer';
-import { InboxReceivedView } from './components/inbox/InboxReceivedView';
-import { MOCK_INBOX_REQUESTS } from '../data/mockInboxRequests';
+import { InboxReceivedView, type InboxRequest } from './components/inbox/InboxReceivedView';
+import { MOCK_INBOX_REQUESTS, MOCK_INBOX_MORE_REQUESTS } from '../data/mockInboxRequests';
 import { generateInboxRequests } from '../data/inboxSimulation';
 import { InboxSubHeader } from './components/inbox/InboxSubHeader';
 import type { SortOption, ViewMode } from './components/inbox/InboxSubHeader';
@@ -90,11 +90,18 @@ import {
   type SharedFilterState,
 } from './components/filters/sharedFilters';
 import { InboxListView } from './components/inbox/InboxListView';
+import { InboxTierEmptyState } from './components/inbox/InboxTierEmptyState';
 import { InboxTabs } from './components/inbox/InboxTabs';
 import { ChatListView } from './components/chat/ChatListView';
 import { ChatConversationScreen } from './components/chat/ChatConversationScreen';
 import type { ConnectionStatus } from './components/chat/ChatConversationScreen';
-import { PromisingMatchesControllerModal, PromisingMatchesPanel, type PromisingMatchesVariant, type Option3SubVariant } from './components/chat/PromisingMatches';
+import {
+  PromisingMatchesControllerModal,
+  PromisingMatchesPanel,
+  type PromisingMatchesVariant,
+  type Option3SubVariant,
+  type ConversationStarterVariant,
+} from './components/chat/PromisingMatches';
 import { MOCK_CONVERSATIONS, MOCK_CONVERSATIONS_V1, MOCK_ONLINE_USERS, createConversationFromAccept, createConversationFromOnlineUser } from '../data/mockChats';
 import type { ChatConversation, OnlineUser, ChatMessage } from '../data/mockChats';
 
@@ -138,10 +145,30 @@ export default function App() {
   const [inboxFilter, setInboxFilter] = useState('received');
   const [inboxDismissedIds, setInboxDismissedIds] = useState<Set<string>>(new Set());
   const [useInboxSimulation, setUseInboxSimulation] = useState(false);
+
+  // ── Top + More Requests prototype (session-only, resets on refresh) ──
+  // viewedAllTop: true once the user clears the last Top request via Accept/Decline.
+  // viewAllTapped: true after user taps the "+N also interested · View All" CTA;
+  //   from this point, the More pool is treated as active.
+  // devStateOverride: forces a specific inbox state (A/B/C/D/E) for demo.
+  const [inboxViewedAllTop, setInboxViewedAllTop] = useState(false);
+  const [inboxViewAllTapped, setInboxViewAllTapped] = useState(false);
+  const [inboxMoreDismissedIds, setInboxMoreDismissedIds] = useState<Set<string>>(new Set());
+  type InboxStateOverride = 'auto' | 'A' | 'B' | 'C' | 'D' | 'E';
+  const [inboxDevStateOverride, setInboxDevStateOverride] = useState<InboxStateOverride>('auto');
+  // Copy variant for the Tier empty state — 'v1' (default) vs 'v2' (alt copy).
+  // Toggled from the bell-icon settings panel; resets to v1 on refresh.
+  type InboxCopyVersion = 'v1' | 'v2';
+  const [inboxCopyVersion, setInboxCopyVersion] = useState<InboxCopyVersion>('v1');
   
   // Inbox Filter, Sort & View State
   const [inboxSortOption, setInboxSortOption] = useState<SortOption>(() =>
     figmaCaptureInboxSortOpen ? 'oldest' : 'recommended'
+  );
+  // Tracks whether the user has explicitly picked a sort option — the chip
+  // label reads "Sort" until they do, then mirrors the selected option.
+  const [inboxSortUserPicked, setInboxSortUserPicked] = useState<boolean>(
+    figmaCaptureInboxSortOpen
   );
   const [inboxViewMode, setInboxViewMode] = useState<ViewMode>('card');
   const [inboxFilters, setInboxFilters] = useState<SharedFilterState>(defaultBaseline);
@@ -159,6 +186,7 @@ export default function App() {
   const [chatV1Filter, setChatV1Filter] = useState('all');
   const [promisingMatchesVariant, setPromisingMatchesVariant] = useState<PromisingMatchesVariant>('option1');
   const [option3SubVariant, setOption3SubVariant] = useState<Option3SubVariant>('3a');
+  const [conversationStarterVariant, setConversationStarterVariant] = useState<ConversationStarterVariant>('option1');
   const [showPromisingMatchesController, setShowPromisingMatchesController] = useState(false);
   const [option3Expanded, setOption3Expanded] = useState(false);
   const [option3ActiveIndex, setOption3ActiveIndex] = useState(0);
@@ -204,6 +232,9 @@ export default function App() {
   );
   const promisingMatches = inboxPendingRequestsRaw.slice(0, 4);
   const shouldShowPromisingMatches = activeMainTab === 'chat' && chatFilter === 'all' && !activeChatConversation && promisingMatches.length > 0;
+  // Chat tab: 2 locked requests at top + 7 in collapsible "More Requests"
+  const chatTopRequests = inboxPendingRequestsRaw.slice(0, 2);
+  const chatMoreRequests = inboxPendingRequestsRaw.slice(2, 9);
 
   // ═══ Shared Filtering (Matches + Inbox) ═══
   const normalizeText = (value?: string | null) => (value || '').trim().toLowerCase();
@@ -570,30 +601,6 @@ export default function App() {
     if (sort === 'newest') {
       sorted.reverse(); // newest = reverse of original mock order
     }
-    if (sort === 'recentlyActive') {
-      const minutesSinceLastActive = (lastActiveRaw: string | undefined, isOnline?: boolean) => {
-        if (isOnline) return 0;
-        const la = normalizeText(lastActiveRaw || '');
-        if (!la) return 10_000;
-        if (/\bjust\s*now\b/.test(la)) return 1;
-        if (/\bnow\b/.test(la)) return 2;
-        if (/\btoday\b/.test(la)) return 60 * 6;
-        const m = la.match(/(\d+)\s*(min|mins|minute|minutes)\b/);
-        if (m) return Number(m[1]);
-        const h = la.match(/(\d+)\s*(hr|hrs|hour|hours)\b/);
-        if (h) return Number(h[1]) * 60;
-        const d = la.match(/(\d+)\s*(day|days)\b/);
-        if (d) return Number(d[1]) * 60 * 24;
-        if (/\bfew\s*hours?\b/.test(la)) return 60 * 3;
-        if (/\bfew\s*mins?\b/.test(la)) return 8;
-        return 9_999;
-      };
-      sorted.sort((a, b) => {
-        const am = minutesSinceLastActive(a.profile.lastActive, a.profile.isOnline);
-        const bm = minutesSinceLastActive(b.profile.lastActive, b.profile.isOnline);
-        return am - bm;
-      });
-    }
     // 'oldest' = original mock order (already chronological from oldest)
     return sorted;
   }, []);
@@ -609,6 +616,62 @@ export default function App() {
   );
 
   const inboxPendingCount = inboxPendingRequestsRaw.length;
+
+  // ═══ Top + More Requests — pool plumbing & derived state ═══
+  // The active "More" pool (filters out anything already actioned this session).
+  const inboxMorePool = useMemo(
+    () => MOCK_INBOX_MORE_REQUESTS.filter(
+      r => !inboxMoreDismissedIds.has(r.profile.id) && !chattingProfileIds.has(r.profile.id)
+    ),
+    [inboxMoreDismissedIds, chattingProfileIds]
+  );
+  const inboxTopRemaining = inboxPendingRequests.length;
+  const inboxMoreRemaining = inboxMorePool.length;
+
+  // Compute the natural state based on flags + counts.
+  type InboxState = 'A' | 'B' | 'C' | 'D' | 'E';
+  const inboxNaturalState: InboxState = useMemo(() => {
+    // While the user has tapped View All, we're rendering A over the More pool (or D/E if exhausted).
+    if (inboxViewAllTapped) {
+      if (inboxMoreRemaining > 0) return 'A';
+      // After exhausting More, the user has effectively viewed all top + all more.
+      return inboxViewedAllTop ? 'D' : 'D';
+    }
+    if (inboxTopRemaining > 0) return 'A';
+    // Top is empty.
+    if (inboxViewedAllTop) {
+      return inboxMoreRemaining > 0 ? 'B' : 'D';
+    }
+    return inboxMoreRemaining > 0 ? 'C' : 'E';
+  }, [inboxTopRemaining, inboxMoreRemaining, inboxViewedAllTop, inboxViewAllTapped]);
+
+  const inboxResolvedState: InboxState =
+    inboxDevStateOverride === 'auto' ? inboxNaturalState : inboxDevStateOverride;
+
+  // What the card stack / list actually renders as its swipeable pool.
+  // In A: the active pool depends on whether View All has been tapped.
+  // In other states: an empty array (the empty-state UI takes over).
+  const inboxActivePool: InboxRequest[] = useMemo(() => {
+    if (inboxResolvedState !== 'A') return [];
+    // Override='A' always shows Top remaining (or More if View All was tapped); otherwise natural rules.
+    if (inboxViewAllTapped) return inboxMorePool;
+    return inboxPendingRequests;
+  }, [inboxResolvedState, inboxViewAllTapped, inboxMorePool, inboxPendingRequests]);
+
+  // The count shown next to "Received" tab — reflects the live pending Top count.
+  //  - Forced C / D / E → 0 (no Top section visible in those demos)
+  //  - Forced B        → full mock pool length (demo shows all 7 above divider)
+  //  - Otherwise       → live pending Top count, which only decrements when the
+  //    user actually Accept/Declines a Top row. View-All tap does NOT zero this
+  //    out — the user can still action the visible Top rows.
+  const inboxReceivedTabCount =
+    inboxDevStateOverride === 'C' ||
+    inboxDevStateOverride === 'D' ||
+    inboxDevStateOverride === 'E'
+      ? 0
+      : inboxDevStateOverride === 'B'
+        ? MOCK_INBOX_REQUESTS.length
+        : inboxPendingRequests.length;
 
   // ═══ Connect Message Feature State ═══
   const [connectVariant, setConnectVariant] = useState<SolutionVariant>('3'); // Default to pre-awareness variant
@@ -647,12 +710,12 @@ export default function App() {
   }, [isDarkMode]);
 
   useEffect(() => {
-    if (!shouldShowPromisingMatches) {
+    if (activeMainTab !== 'chat' || chatFilter !== 'all') {
       setShowPromisingMatchesController(false);
       setOption3Expanded(false);
       setOption3ActiveIndex(0);
     }
-  }, [shouldShowPromisingMatches]);
+  }, [activeMainTab, chatFilter]);
 
   useEffect(() => {
     if (!shouldShowPromisingMatches || promisingMatchesVariant !== 'option3' || option3Expanded || promisingMatches.length <= 1) {
@@ -692,6 +755,30 @@ export default function App() {
     setOption3Expanded(false);
     setShowPromisingMatchesController(false);
   };
+
+  // ═══ Tap on a locked request row in Chat list → open chat inline (no navigation) ═══
+  const handleOpenLockedRequest = useCallback((request: { profile: Profile; message: string; timestamp: string }) => {
+    const now = Date.now();
+    const convo: ChatConversation = {
+      id: `chat_request_${request.profile.id}_${now}`,
+      profile: { ...request.profile, isOnline: request.profile.isOnline ?? false },
+      lastMessage: request.message,
+      lastMessageTime: request.timestamp || 'Just now',
+      lastActivityTs: now,
+      unreadCount: 1,
+      isAccepted: false,
+      messages: [
+        {
+          id: `m_locked_${now}`,
+          senderId: request.profile.id,
+          text: request.message,
+          timestamp: request.timestamp || 'Earlier',
+          read: false,
+        },
+      ],
+    };
+    setActiveChatConversation(convo);
+  }, []);
 
   // ═══ Helper: Persist a sent connect message into the active chat conversation ═══
   const persistConnectMessageToChat = useCallback((profileId: string, messageText: string) => {
@@ -859,16 +946,52 @@ export default function App() {
 
   // ═══ Inbox Accept → Create Chat Conversation ═══
   const handleInboxAccept = useCallback((profile: Profile) => {
-    setInboxDismissedIds(prev => new Set(prev).add(profile.id));
-    // Find the connect message from the inbox request
-    const inboxReq = MOCK_INBOX_REQUESTS.find(r => r.profile.id === profile.id);
+    // Determine which pool this profile lives in so we mutate the correct dismissed-set.
+    const isFromMore = MOCK_INBOX_MORE_REQUESTS.some(r => r.profile.id === profile.id);
+    if (isFromMore) {
+      setInboxMoreDismissedIds(prev => new Set(prev).add(profile.id));
+    } else {
+      setInboxDismissedIds(prev => {
+        const next = new Set(prev).add(profile.id);
+        // If this dismissal exhausts the Top pool, mark viewedAllTop.
+        const remaining = MOCK_INBOX_REQUESTS.filter(r => !next.has(r.profile.id)).length;
+        if (remaining === 0) setInboxViewedAllTop(true);
+        return next;
+      });
+    }
+    // Look up connect message in either pool.
+    const inboxReq =
+      MOCK_INBOX_REQUESTS.find(r => r.profile.id === profile.id) ||
+      MOCK_INBOX_MORE_REQUESTS.find(r => r.profile.id === profile.id);
     const connectMsg = inboxReq?.message;
     const newConvo = createConversationFromAccept(profile, connectMsg);
     setAcceptedConversations(prev => [newConvo, ...prev]);
   }, []);
 
   const handleInboxDecline = useCallback((profile: Profile) => {
-    setInboxDismissedIds(prev => new Set(prev).add(profile.id));
+    const isFromMore = MOCK_INBOX_MORE_REQUESTS.some(r => r.profile.id === profile.id);
+    if (isFromMore) {
+      setInboxMoreDismissedIds(prev => new Set(prev).add(profile.id));
+      return;
+    }
+    setInboxDismissedIds(prev => {
+      const next = new Set(prev).add(profile.id);
+      const remaining = MOCK_INBOX_REQUESTS.filter(r => !next.has(r.profile.id)).length;
+      if (remaining === 0) setInboxViewedAllTop(true);
+      return next;
+    });
+  }, []);
+
+  // ═══ "View All" tap on B/C empty state → load More pool into stack/list ═══
+  const handleInboxViewAllMore = useCallback(() => {
+    setInboxViewAllTapped(true);
+    // If we got here via a forced "B", preserve the "viewed all top" semantic so
+    // the persistent list-view divider keeps the green-check (B) variant rather
+    // than the card-stack (C) variant.
+    setInboxDevStateOverride(prev => {
+      if (prev === 'B') setInboxViewedAllTop(true);
+      return prev === 'B' || prev === 'C' ? 'auto' : prev;
+    });
   }, []);
 
   // ═══ Online User Tap → Open chat screen (no connect sent yet) ═══
@@ -1398,12 +1521,25 @@ export default function App() {
           onPremiumIndicatorGlyphChange={setPremiumIndicatorGlyph}
           premiumLockPromptPresentation={premiumLockPromptPresentation}
           onPremiumLockPromptPresentationChange={setPremiumLockPromptPresentation}
+          inboxDevStateOverride={inboxDevStateOverride}
+          onInboxDevStateOverrideChange={(next) => {
+            // Reset session flags so the chosen demo state renders cleanly,
+            // regardless of any swiping / View-All taps that happened earlier.
+            setInboxViewAllTapped(false);
+            setInboxViewedAllTop(false);
+            setInboxDismissedIds(new Set());
+            setInboxMoreDismissedIds(new Set());
+            setInboxDevStateOverride(next);
+          }}
+          inboxCopyVersion={inboxCopyVersion}
+          onInboxCopyVersionChange={setInboxCopyVersion}
         />
 
         <PromisingMatchesControllerModal
           isOpen={showPromisingMatchesController}
           selectedVariant={promisingMatchesVariant}
           selectedOption3Sub={option3SubVariant}
+          selectedConversationStarterVariant={conversationStarterVariant}
           onSelectVariant={(variant) => {
             setPromisingMatchesVariant(variant);
             setOption3Expanded(false);
@@ -1414,6 +1550,7 @@ export default function App() {
             setOption3Expanded(false);
             setOption3ActiveIndex(0);
           }}
+          onSelectConversationStarterVariant={setConversationStarterVariant}
           onClose={() => setShowPromisingMatchesController(false)}
         />
 
@@ -3057,7 +3194,7 @@ export default function App() {
                   selectedId={inboxFilter}
                   onSelect={setInboxFilter}
                   tabs={[
-                    { id: 'received', label: `Received (${inboxPendingCount})` },
+                    { id: 'received', label: `Received (${inboxReceivedTabCount})` },
                     { id: 'accepted', label: 'Accepted (19)' },
                     { id: 'contacts', label: 'Contacts' },
                     { id: 'sent', label: 'Sent' },
@@ -3070,12 +3207,10 @@ export default function App() {
                     {/* Sub-header: Filter pill + Sort dropdown + Card/List toggle */}
                     <InboxSubHeader
                       sortOption={inboxSortOption}
+                      hasUserSelectedSort={inboxSortUserPicked}
                       onSortChange={(opt) => {
-                        if (opt === 'recentlyActive' && !isCurrentUserPremium) {
-                          setShowPremiumFromFilters(true);
-                          return;
-                        }
                         setInboxSortOption(opt);
+                        setInboxSortUserPicked(true);
                       }}
                       viewMode={inboxViewMode}
                       onViewModeChange={setInboxViewMode}
@@ -3097,37 +3232,191 @@ export default function App() {
                     {/* Content: Card view (swipe) or List view */}
                     {inboxViewMode === 'card' ? (
                       <div className="flex-1 flex flex-col overflow-y-auto overflow-x-hidden scrollbar-hide pb-[16px]" onScroll={handleInboxContentScroll}>
-                        <InboxReceivedView
-                          requests={inboxPendingRequests}
-                          isCurrentUserPremium={isCurrentUserPremium}
-                          onAccept={handleInboxAccept}
-                          onDecline={handleInboxDecline}
-                          onViewProfile={handleViewInboxProfile}
-                          hasActiveFilters={inboxActiveFilterCount > 0}
-                          onClearFilters={() => setInboxFilters(PARTNER_PREFERENCE_BASELINE_FILTERS)}
-                          fallbackRequests={
-                            inboxActiveFilterCount > 0 && inboxPendingRequests.length === 0
-                              ? inboxSortedOtherRequests
-                              : undefined
-                          }
-                        />
+                        {inboxResolvedState === 'A' ? (
+                          <InboxReceivedView
+                            requests={inboxActivePool}
+                            isCurrentUserPremium={isCurrentUserPremium}
+                            onAccept={handleInboxAccept}
+                            onDecline={handleInboxDecline}
+                            onViewProfile={handleViewInboxProfile}
+                            hasActiveFilters={inboxActiveFilterCount > 0}
+                            onClearFilters={() => setInboxFilters(PARTNER_PREFERENCE_BASELINE_FILTERS)}
+                            fallbackRequests={
+                              inboxActiveFilterCount > 0 && inboxActivePool.length === 0
+                                ? inboxSortedOtherRequests
+                                : undefined
+                            }
+                          />
+                        ) : inboxResolvedState === 'E' ? (
+                          <InboxReceivedView
+                            requests={[]}
+                            isCurrentUserPremium={isCurrentUserPremium}
+                            onAccept={handleInboxAccept}
+                            onDecline={handleInboxDecline}
+                            onViewProfile={handleViewInboxProfile}
+                            hasActiveFilters={false}
+                          />
+                        ) : (
+                          <InboxTierEmptyState
+                            variant={inboxResolvedState as 'B' | 'C' | 'D'}
+                            copyVersion={inboxCopyVersion}
+                            moreCount={inboxMoreRemaining || 7}
+                            morePreviewAvatars={MOCK_INBOX_MORE_REQUESTS.slice(0, 3).map(r => r.profile.photos?.avatar || r.profile.imageUrl || r.profile.avatarUrl || '')}
+                            onViewAll={handleInboxViewAllMore}
+                            onExploreMatches={() => setActiveMainTab('matches')}
+                            centered
+                          />
+                        )}
                       </div>
                     ) : (
                       <div className="flex-1 overflow-y-auto overflow-x-hidden scrollbar-hide pb-[16px]" onScroll={handleInboxContentScroll}>
-                        <InboxListView
-                          requests={inboxPendingRequests}
-                          isCurrentUserPremium={isCurrentUserPremium}
-                          onAccept={handleInboxAccept}
-                          onDecline={handleInboxDecline}
-                          onViewProfile={handleViewInboxProfile}
-                          otherRequests={
-                            inboxActiveFilterCount > 0 && inboxPendingRequests.length === 0
-                              ? inboxSortedOtherRequests
-                              : undefined
+                        {/*
+                          List view — INLINE composition model (per spec):
+                            [ Top rows still pending ]   (empty when state ≠ A or override forces B/C/D/E)
+                            [ Inline divider block ]     (B/C/D variants, or persistent post-View-All)
+                            [ More rows ]                (after View All tapped, when More pool has profiles)
+
+                          The divider block sits at the END of the list, never as a full-screen swap.
+                          Once viewAllTapped flips, the divider stays inline forever (per spec) — only
+                          the CTA pill goes away.
+                        */}
+                        {(() => {
+                          // ─── List-view composition model ───────────────────────────────────────
+                          // The divider is a PERMANENT inline footer at the end of the list
+                          // (whenever there's a More tier available). You scroll past the Top
+                          // rows and reach "You've viewed all your top Requests + Others
+                          // interested · View All" at the bottom. Tap View All to append the
+                          // More rows below the divider in the same list.
+                          //
+                          // Layout (top → bottom):
+                          //   [ Top rows — possibly empty if exhausted / C / E ]
+                          //   [ Inline divider — B/C/D variant ]
+                          //   [ More rows — appended after View All tap ]
+                          //
+                          // The divider variant chooses the icon + copy:
+                          //   D → green ✓ + "Check back soon" + Explore Matches button
+                          //   C → card-stack + "Your top Requests will appear here" + pill
+                          //   B → green ✓ + "You've viewed all your top Requests" + pill
+                          // ───────────────────────────────────────────────────────────────────────
+                          const isForcedBD =
+                            inboxDevStateOverride === 'B' || inboxDevStateOverride === 'D';
+                          const isForcedC = inboxDevStateOverride === 'C';
+
+                          // State E renders the existing "All caught up" empty state via InboxListView.
+                          if (inboxResolvedState === 'E') {
+                            return (
+                              <InboxListView
+                                requests={[]}
+                                isCurrentUserPremium={isCurrentUserPremium}
+                                onAccept={handleInboxAccept}
+                                onDecline={handleInboxDecline}
+                                onViewProfile={handleViewInboxProfile}
+                                hasActiveFilters={false}
+                              />
+                            );
                           }
-                          hasActiveFilters={inboxActiveFilterCount > 0}
-                          onClearFilters={() => setInboxFilters(PARTNER_PREFERENCE_BASELINE_FILTERS)}
-                        />
+
+                          // ── Rows shown ABOVE the divider (Top section) ──
+                          //  - Forced C  → empty (state C means "no top yet, ever")
+                          //  - Forced D  → empty (D's screen stands alone)
+                          //  - Forced B  → full mock Top pool (demo)
+                          //  - Otherwise → live pending Top pool. Crucially, View-All tap does NOT
+                          //    wipe Top rows: the user can still Accept/Decline the visible top
+                          //    requests after tapping View All. Top only shrinks when the user
+                          //    actually actions them.
+                          const topRows: InboxRequest[] =
+                            isForcedC || inboxDevStateOverride === 'D'
+                              ? []
+                              : isForcedBD
+                                ? MOCK_INBOX_REQUESTS
+                                : inboxPendingRequests;
+
+                          // ── Rows shown BELOW the divider (More section) ──
+                          // Populated only after View All tap. Forced demos use the full mock
+                          // pool; natural flow uses the live (decrementing) pool.
+                          const moreRows: InboxRequest[] = inboxViewAllTapped
+                            ? isForcedBD || isForcedC
+                              ? MOCK_INBOX_MORE_REQUESTS
+                              : inboxMorePool
+                            : [];
+
+                          // ── Divider visibility ──
+                          // In list view the divider is a PERMANENT footer when More tier exists
+                          // (or in states B/C/D/post-View-All). It only goes away in state E
+                          // (which returned early above) or when there's truly nothing to surface.
+                          const moreAvailable =
+                            inboxMoreRemaining > 0 || isForcedBD || isForcedC;
+                          const showDivider =
+                            inboxResolvedState === 'D' || moreAvailable || inboxViewAllTapped;
+
+                          // ── Divider variant ──
+                          //   D → state D (forced or natural)
+                          //   C → state C (Top has never had rows; pre View-All)
+                          //   B → everything else (including natural state A reached by scroll)
+                          const dividerVariant: 'B' | 'C' | 'D' =
+                            inboxResolvedState === 'D'
+                              ? 'D'
+                              : inboxResolvedState === 'C' && !inboxViewAllTapped
+                                ? 'C'
+                                : 'B';
+
+                          // Hide the View-All pill after it's been tapped, or when state is D.
+                          const hideCta = inboxViewAllTapped || dividerVariant === 'D';
+
+                          return (
+                            <>
+                              {topRows.length > 0 && (
+                                <InboxListView
+                                  requests={topRows}
+                                  isCurrentUserPremium={isCurrentUserPremium}
+                                  onAccept={handleInboxAccept}
+                                  onDecline={handleInboxDecline}
+                                  onViewProfile={handleViewInboxProfile}
+                                  otherRequests={
+                                    inboxActiveFilterCount > 0 && topRows.length === 0
+                                      ? inboxSortedOtherRequests
+                                      : undefined
+                                  }
+                                  hasActiveFilters={inboxActiveFilterCount > 0}
+                                  onClearFilters={() => setInboxFilters(PARTNER_PREFERENCE_BASELINE_FILTERS)}
+                                />
+                              )}
+                              {showDivider && (
+                                <InboxTierEmptyState
+                                  variant={dividerVariant}
+                                  copyVersion={inboxCopyVersion}
+                                  moreCount={hideCta ? 0 : inboxMoreRemaining || 7}
+                                  morePreviewAvatars={
+                                    hideCta
+                                      ? []
+                                      : MOCK_INBOX_MORE_REQUESTS.slice(0, 3).map(
+                                          r => r.profile.photos?.avatar || r.profile.imageUrl || r.profile.avatarUrl || ''
+                                        )
+                                  }
+                                  hideViewAllCta={hideCta}
+                                  onViewAll={handleInboxViewAllMore}
+                                  onExploreMatches={() => setActiveMainTab('matches')}
+                                  // List view: when the list is completely empty
+                                  // (no Top rows AND no More rows above/below the divider),
+                                  // center the empty-state block vertically in the viewport
+                                  // — same treatment as card view. Otherwise let it sit
+                                  // inline at the end of the visible list.
+                                  centered={topRows.length === 0 && moreRows.length === 0}
+                                />
+                              )}
+                              {moreRows.length > 0 && (
+                                <InboxListView
+                                  requests={moreRows}
+                                  isCurrentUserPremium={isCurrentUserPremium}
+                                  onAccept={handleInboxAccept}
+                                  onDecline={handleInboxDecline}
+                                  onViewProfile={handleViewInboxProfile}
+                                  hasActiveFilters={false}
+                                />
+                              )}
+                            </>
+                          );
+                        })()}
                       </div>
                     )}
 
@@ -3154,7 +3443,8 @@ export default function App() {
                   filters={[
                     { id: 'all', label: 'All' },
                     { id: 'unread', label: 'Unread' },
-                    { id: 'matched', label: 'Matched' }
+                    { id: 'shaadi-live', label: 'Shaadi Live' },
+                    { id: 'calls', label: 'Calls' }
                   ]}
                   selectedId={chatFilter}
                   onSelect={setChatFilter}
@@ -3166,30 +3456,12 @@ export default function App() {
                   onOpenChat={(convo) => setActiveChatConversation(convo)}
                   onOpenOnlineChat={handleOpenOnlineChat}
                   showOnlineUsers={false}
-                  listBottomSpacerClassName={
-                    chatFilter !== 'all'
-                      ? 'h-[16px]'
-                      : promisingMatchesVariant === 'option2'
-                        ? 'h-[220px]'
-                        : promisingMatchesVariant === 'option3'
-                          ? (option3Expanded ? 'h-[340px]' : 'h-[144px]')
-                          : 'h-[128px]'
-                  }
+                  topRequests={chatFilter === 'all' ? chatTopRequests : []}
+                  moreRequests={chatFilter === 'all' ? chatMoreRequests : []}
+                  onOpenRequest={handleOpenLockedRequest}
+                  listBottomSpacerClassName="h-[96px]"
                 />
               </div>
-            )}
-
-            {shouldShowPromisingMatches && (
-              <PromisingMatchesPanel
-                variant={promisingMatchesVariant}
-                option3Sub={option3SubVariant}
-                requests={promisingMatches}
-                isCurrentUserPremium={isCurrentUserPremium}
-                option3ActiveIndex={option3ActiveIndex}
-                option3Expanded={option3Expanded}
-                onToggleOption3Expanded={() => setOption3Expanded((prev) => !prev)}
-                onOpenInbox={handleOpenPromisingInbox}
-              />
             )}
 
             {/* CHAT CONVERSATION — full-screen slide-in overlay */}
@@ -3212,6 +3484,7 @@ export default function App() {
                     onSendConnectMessage={handleSendConnectMessage}
                     onAcceptFromChat={handleAcceptFromChat}
                     onDeclineFromChat={handleDeclineFromChat}
+                    conversationStarterVariant={conversationStarterVariant}
                   />
                 </motion.div>
               )}

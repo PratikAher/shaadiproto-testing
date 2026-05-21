@@ -30,3 +30,32 @@ export const MOCK_INBOX_REQUESTS: InboxRequest[] = INBOX_PROFILE_INDICES.map((id
   message: CONNECT_MESSAGES[i % CONNECT_MESSAGES.length],
   timestamp: TIMESTAMPS[i % TIMESTAMPS.length],
 }));
+
+// ─────────────────────────────────────────────────────────────────────────────
+// "More" tier — secondary interest pool surfaced after the user clears the
+// top requests stack. Used by the Top/More Inbox prototype.
+// Picks 7 profiles outside the primary INBOX_PROFILE_INDICES set.
+// ─────────────────────────────────────────────────────────────────────────────
+const MORE_INBOX_PROFILE_INDICES = [4, 6, 8, 14, 15, 16, 17];
+
+const MORE_TIMESTAMPS = [
+  '4 days ago',
+  '5 days ago',
+  '6 days ago',
+  '1 week ago',
+  '1 week ago',
+  '2 weeks ago',
+  '3 weeks ago',
+];
+
+export const MOCK_INBOX_MORE_REQUESTS: InboxRequest[] = MORE_INBOX_PROFILE_INDICES
+  .map((idx, i) => {
+    const profile = MOCK_PROFILES[idx];
+    if (!profile) return null;
+    return {
+      profile,
+      message: CONNECT_MESSAGES[i % CONNECT_MESSAGES.length],
+      timestamp: MORE_TIMESTAMPS[i % MORE_TIMESTAMPS.length],
+    } as InboxRequest;
+  })
+  .filter((r): r is InboxRequest => r !== null);

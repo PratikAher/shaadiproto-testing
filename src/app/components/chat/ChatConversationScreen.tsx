@@ -9,6 +9,9 @@ import { useKeyboardVisible } from '../../hooks/useKeyboardVisible';
 import { Button } from '../Button';
 import { motion, AnimatePresence } from 'motion/react';
 import chatBackgroundImage from '../../../assets/chat/chat-background.png';
+import { AiWritingHeaderIcon } from './AiWritingHeaderIcon';
+import { CONVERSATION_STARTER_GRADIENT_CSS } from './conversationStarterGradients';
+import type { ConversationStarterVariant } from './PromisingMatches';
 
 // ═══════════════════════════════════════════════════════
 // Types
@@ -28,6 +31,37 @@ function starterViewportMaxW(): number {
   return Math.max(CONVERSATION_STARTER_MIN_W, document.documentElement.clientWidth - 52);
 }
 
+function ConversationStarterShimmerBar({ className }: { className?: string }) {
+  return (
+    <div className={cn('relative h-[10px] overflow-hidden rounded-full bg-[#e8e8ee]', className)}>
+      <div
+        className="absolute inset-y-0 w-[48%]"
+        style={{
+          background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.92), transparent)',
+          animation: 'chat-starter-shimmer-slide 1.15s ease-in-out infinite',
+        }}
+      />
+    </div>
+  );
+}
+
+/** Skeleton card — same footprint as loaded starter chips (Figma loading reference). */
+function ConversationStarterShimmerChip() {
+  return (
+    <div
+      className="shrink-0 rounded-tl-2xl rounded-tr-2xl rounded-bl-2xl rounded-br-none border border-[#dfe0e3] bg-[#f9f9fc] px-[14px] py-3 box-border"
+      style={{ width: CONVERSATION_STARTER_MIN_W + 36, height: STARTER_CHIP_FIXED_H }}
+      aria-hidden
+    >
+      <div className="flex h-full flex-col justify-center gap-2">
+        <ConversationStarterShimmerBar />
+        <ConversationStarterShimmerBar />
+        <ConversationStarterShimmerBar className="w-[38%]" />
+      </div>
+    </div>
+  );
+}
+
 /** Shown until the user sends their first outgoing message in this thread. */
 function getConversationStarters(peerFirstName: string): string[] {
   return [
@@ -36,10 +70,6 @@ function getConversationStarters(peerFirstName: string): string[] {
     `Hello ${peerFirstName}! You seem really genuine, and I'd be glad to connect and get to know you better whenever you have a moment.`,
   ];
 }
-
-/** Figma Chat 💬 — iridescent wash at ~4% over white (stops: coral → violet → blue → teal). */
-const CONVERSATION_STARTER_GRADIENT =
-  'linear-gradient(136deg, hsl(358, 65%, 72%) 0%, hsl(277, 52%, 74%) 32%, hsl(205, 100%, 62%) 66%, hsl(187, 72%, 52%) 100%)';
 
 function ConversationStarterChip({
   text,
@@ -121,7 +151,7 @@ function ConversationStarterChip({
         });
       }}
       className={cn(
-        'relative isolate shrink-0 mb-1 cursor-pointer overflow-visible text-left box-border',
+        'relative isolate shrink-0 cursor-pointer overflow-visible text-left box-border',
         'rounded-tl-2xl rounded-tr-2xl rounded-bl-2xl rounded-br-none',
         'shadow-[0_1px_3px_rgba(0,0,0,0.06)]',
         'transition-[box-shadow,transform] active:scale-[0.99]',
@@ -132,7 +162,7 @@ function ConversationStarterChip({
         minWidth: CONVERSATION_STARTER_MIN_W,
         height: STARTER_CHIP_FIXED_H,
         border: '1px solid transparent',
-        background: `linear-gradient(#ffffff, #ffffff) padding-box, ${CONVERSATION_STARTER_GRADIENT} border-box`,
+        background: `linear-gradient(#ffffff, #ffffff) padding-box, ${CONVERSATION_STARTER_GRADIENT_CSS} border-box`,
         WebkitBackgroundClip: 'padding-box, border-box',
         backgroundClip: 'padding-box, border-box',
         padding: '12px 14px 14px',
@@ -148,7 +178,7 @@ function ConversationStarterChip({
         <span
           className="absolute inset-0"
           style={{
-            background: CONVERSATION_STARTER_GRADIENT,
+            background: CONVERSATION_STARTER_GRADIENT_CSS,
             opacity: 0.04,
           }}
         />
@@ -174,6 +204,8 @@ interface ChatConversationScreenProps {
   onSendConnectMessage?: (profileId: string, message: string) => void;
   onAcceptFromChat?: (profileId: string, replyMessage?: string) => void;
   onDeclineFromChat?: (profileId: string) => void;
+  /** Prototype: driven from Chat tab bell → layout picker. */
+  conversationStarterVariant?: ConversationStarterVariant;
 }
 
 // ═══════════════════════════════════════════════════════
@@ -618,7 +650,18 @@ const MessageBubble = ({ message, isMe }: { message: ChatMessage; isMe: boolean 
 // Main Component
 // ═══════════════════════════════════════════════════════
 
-export const ChatConversationScreen = ({ conversation, onBack, onFirstMessageSent, onMessageUpdate, connectionStatus, onConnectFromChat, onSendConnectMessage, onAcceptFromChat, onDeclineFromChat }: ChatConversationScreenProps) => {
+export const ChatConversationScreen = ({
+  conversation,
+  onBack,
+  onFirstMessageSent,
+  onMessageUpdate,
+  connectionStatus,
+  onConnectFromChat,
+  onSendConnectMessage,
+  onAcceptFromChat,
+  onDeclineFromChat,
+  conversationStarterVariant = 'option1',
+}: ChatConversationScreenProps) => {
   const [inputText, setInputText] = useState('');
   const [messages, setMessages] = useState<ChatMessage[]>(conversation.messages);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -764,7 +807,20 @@ export const ChatConversationScreen = ({ conversation, onBack, onFirstMessageSen
   const isShortAcceptedThread = localStatus === 'accepted' && messages.length <= 2;
   const showConversationStarters =
     localStatus !== 'connect_sent' && (!hasSentFromMe || isShortAcceptedThread);
+  const showConversationStarterOption1 = showConversationStarters && conversationStarterVariant === 'option1';
   const conversationStarters = useMemo(() => getConversationStarters(firstName), [firstName]);
+
+  /** Brief shimmer before showing AI-generated starter copy (Figma loading state). */
+  const [conversationStartersReady, setConversationStartersReady] = useState(false);
+  useEffect(() => {
+    if (!showConversationStarterOption1) {
+      setConversationStartersReady(false);
+      return;
+    }
+    setConversationStartersReady(false);
+    const t = window.setTimeout(() => setConversationStartersReady(true), 1050);
+    return () => window.clearTimeout(t);
+  }, [showConversationStarterOption1, conversation.id]);
 
   const { isKeyboardVisible } = useKeyboardVisible();
 
@@ -927,26 +983,47 @@ export const ChatConversationScreen = ({ conversation, onBack, onFirstMessageSen
       {/* -- Conversation starters + Input Bar -- */}
       <div className="flex-none">
         <div
-          className="bg-background border-t border-border/40"
+          className="flex flex-col items-stretch bg-background border-t border-border/40"
           style={{ paddingBottom: isKeyboardVisible ? 0 : 32, transition: 'padding-bottom 0.1s ease' }}
         >
-          {showConversationStarters && (
-            <div
-              className="flex gap-2 overflow-x-auto scrollbar-hide px-3 pt-3 pb-1"
-              role="group"
-              aria-label="Conversation starters"
-            >
-              {conversationStarters.map((text) => (
-                <ConversationStarterChip
-                  key={text}
-                  text={text}
-                  textareaRef={textareaRef}
-                  onPick={(t) => setInputText(t)}
-                />
-              ))}
-            </div>
+          {showConversationStarterOption1 && (
+            <>
+              <div className="flex items-center gap-[4px] px-3 pt-2 pb-0">
+                <AiWritingHeaderIcon size={18} />
+                <p
+                  className="min-w-0 flex-1 font-medium text-[#41404d]"
+                  style={{ fontSize: 14, lineHeight: '20px' }}
+                >
+                  {`Start your conversation with ${firstName}`}
+                </p>
+              </div>
+              <div
+                className="flex gap-2 overflow-x-auto scrollbar-hide px-3 pt-2 pb-0"
+                role="group"
+                aria-label="Conversation starters"
+                aria-busy={!conversationStartersReady}
+              >
+                {!conversationStartersReady ? (
+                  <>
+                    <ConversationStarterShimmerChip />
+                    <ConversationStarterShimmerChip />
+                    <ConversationStarterShimmerChip />
+                  </>
+                ) : (
+                  conversationStarters.map((text) => (
+                    <ConversationStarterChip
+                      key={text}
+                      text={text}
+                      textareaRef={textareaRef}
+                      onPick={(t) => setInputText(t)}
+                    />
+                  ))
+                )}
+              </div>
+            </>
           )}
-          <div className="flex items-end gap-2 px-3 py-[13px]">
+          {/* + / compose row — disclaimer is next sibling with inline marginTop so spacing always shows in DevTools */}
+          <div className="flex items-end gap-2 px-3 pt-[12px] pb-0">
             {/* + button */}
             <button
               tabIndex={-1}
@@ -979,7 +1056,7 @@ export const ChatConversationScreen = ({ conversation, onBack, onFirstMessageSen
                   paddingLeft: 20,
                   paddingRight: 8,
                   paddingTop: 12,
-                  paddingBottom: 12,
+                  paddingBottom: 8,
                   resize: 'none',
                   overflow: 'hidden',
                 }}
@@ -995,6 +1072,27 @@ export const ChatConversationScreen = ({ conversation, onBack, onFirstMessageSen
               </button>
             </div>
           </div>
+          {showConversationStarterOption1 && (
+            <p
+              data-ai-disclaimer="true"
+              className="box-border block w-full max-w-full shrink-0 px-4 text-center"
+              style={{
+                marginTop: 8,
+                marginLeft: 0,
+                marginRight: 0,
+                marginBottom: 0,
+                textAlign: 'center',
+                fontSize: 12,
+                lineHeight: '16px',
+                letterSpacing: '0.15px',
+                color: '#95959d',
+                paddingTop: 2,
+                paddingBottom: 2,
+              }}
+            >
+              These are AI generated. Review before sending.
+            </p>
+          )}
         </div>
       </div>
     </div>
