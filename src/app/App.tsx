@@ -3522,7 +3522,7 @@ export default function App() {
           <div className="flex justify-between items-center max-w-md mx-auto">
              <NavItem id="home" label="Home" icon={HomeIcon} activeIcon={HomeFilledIcon} />
              <NavItem id="matches" label="Matches" icon={MatchesIcon} activeIcon={MatchesFilledIcon} />
-             <NavItem id="inbox" label="Inbox" icon={InboxIcon} activeIcon={InboxFilledIcon} badge={inboxPendingCount} />
+             <NavItem id="inbox" label="Inbox" icon={InboxIcon} activeIcon={InboxFilledIcon} badge={inboxReceivedTabCount} />
              <NavItem id="chat" label="Chat" icon={ChatIcon} activeIcon={ChatFilledIcon} />
              <NavItem id="premium" label="Premium" icon={CrownIcon} activeIcon={CrownFilledIcon} />
           </div>
