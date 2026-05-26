@@ -412,24 +412,27 @@ InboxCard.displayName = 'InboxCard';
 // Stacked card shells — more visible, peeking from below
 // ─────────────────────────────────────────────────────────────────────────────
 
-// Depth slot transforms — tuned so the VISIBLE BOTTOM EDGE of each layer sits
-// on a clean staircase, regardless of scale. With center-origin scaling on a
-// shell that fills the stack container (height H), bottom = ((1+s)/2)·H + y.
-// The stack container has pb-[16px] so the active card's flex bottom is at
-// H-16. Each peek behind sits 6px lower than the layer in front.
+// Depth slot transforms. With the stack container's pb-[16px] moved up to
+// the outer wrapper, BOTH the active card (flex-1, height H) and the absolute
+// peek shells (inset-x-0 top-0 bottom-0, height H) share the same H. So:
+//   slot 0 (active size)  → s=1, y=0  ⇒ shell ≡ active exactly
+// The peeks below the active card live in the outer wrapper's bottom padding
+// area (16px), so SLOT[1] and SLOT[2] use positive y values that push their
+// visible bottom edges PAST the stack container, into the padding space.
 //
-// With H≈600 (typical mobile viewport-minus-chrome), the numbers below give:
-//   slot 0 (active size)  → bottom ≈ H-16 (matches active card's flex bottom)
-//   slot 1 (back-1)        → bottom ≈ H-10 (6px below active = visible peek)
-//   slot 2 (back-2)        → bottom ≈ H-4  (6px below back-1 = visible peek)
+// With H≈600 (typical mobile inbox height):
+//   SLOT[0] bottom = H              → matches active
+//   SLOT[1] bottom = 0.98·H + 18    ≈ H + 6   (6px peek below active)
+//   SLOT[2] bottom = 0.96·H + 36    ≈ H + 12  (6px peek below back-1)
 //
-// The key property: each step keeps the SAME 6px gap. So as back-1 morphs
-// toward slot 0 and back-2 morphs toward slot 1, both bottoms move up by
-// exactly 6px in lockstep — peek strips stay constant, no apparent shrinking.
+// The step between adjacent slots' bottoms is a constant ≈6px, so as back-1
+// morphs slot 1 → 0 and back-2 morphs slot 2 → 1, both visible bottom edges
+// move up by exactly the same amount in lockstep. Peeks stay constant — no
+// apparent shrinking. And at slot 0, the shell matches active card 1:1.
 const SLOT: Record<0 | 1 | 2, { scale: number; y: number }> = {
-  0: { scale: 1,    y: -16 },
-  1: { scale: 0.96, y: 2 },
-  2: { scale: 0.92, y: 20 },
+  0: { scale: 1,    y: 0 },
+  1: { scale: 0.96, y: 18 },
+  2: { scale: 0.92, y: 36 },
 };
 
 // Animated peek shell. Subscribes to a shared swipeProgress MotionValue
@@ -661,7 +664,7 @@ export function InboxReceivedView({
   const currentRequest = sourceRequests[0];
 
   return (
-    <div className="relative w-full flex-1 px-[10px] flex flex-col items-center pt-[4px]">
+    <div className="relative w-full flex-1 px-[10px] flex flex-col items-center pt-[4px] pb-[16px]">
       {showingFallback && (
         <div className="w-full px-[6px] pt-[4px] pb-[10px]">
           <div className="flex items-center justify-between gap-3">
@@ -684,8 +687,11 @@ export function InboxReceivedView({
           </p>
         </div>
       )}
-      {/* Stack container — bottom padding leaves room for the two peek strips */}
-      <div className="relative w-full flex-1 flex flex-col pb-[16px]" style={{ isolation: 'isolate' }}>
+      {/* Stack container — no padding here. The outer wrapper owns the
+          bottom padding so the active card (flex child) and the absolute peek
+          shells share the SAME height; SLOT[0] (s=1, y=0) then makes a shell
+          visually identical to the active card with no over-grow on advance. */}
+      <div className="relative w-full flex-1 flex flex-col" style={{ isolation: 'isolate' }}>
         {/* Stacked card shells — transforms driven continuously by swipeProgress
             so they slide forward in real time as the user drags. Keyed by the
             active profile id so each new active card brings a fresh pair of
