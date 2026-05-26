@@ -412,9 +412,12 @@ InboxCard.displayName = 'InboxCard';
 // Stacked card shells — more visible, peeking from below
 // ─────────────────────────────────────────────────────────────────────────────
 
+// Tuned so depth-2's visible bottom edge clears depth-1's by a few px — gives
+// the stack a clear 3-card depth read (active + 2 peeks). Each deeper layer
+// scales down a bit more AND offsets down more so the lower edges step out.
 const StackedCardBack = ({ depth }: { depth: 1 | 2 }) => {
   const scale = depth === 1 ? 0.96 : 0.92;
-  const translateY = depth === 1 ? 6 : 12;
+  const translateY = depth === 1 ? 8 : 22;
   return (
     <div
       className="absolute inset-x-0 top-0 bottom-0 pointer-events-none"
@@ -627,8 +630,8 @@ export function InboxReceivedView({
           </p>
         </div>
       )}
-      {/* Stack container — extra bottom padding for stacked card peek */}
-      <div className="relative w-full flex-1 flex flex-col pb-[16px]" style={{ isolation: 'isolate' }}>
+      {/* Stack container — extra bottom padding so the depth-2 peek isn't clipped */}
+      <div className="relative w-full flex-1 flex flex-col pb-[28px]" style={{ isolation: 'isolate' }}>
         {/* Stacked card shells — clearly visible behind */}
         {remaining > 2 && <StackedCardBack depth={2} />}
         {remaining > 1 && <StackedCardBack depth={1} />}
