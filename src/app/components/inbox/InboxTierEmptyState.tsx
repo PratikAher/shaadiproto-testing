@@ -80,6 +80,13 @@ interface InboxTierEmptyStateProps {
    * the divider sits inline at the end of the rows.
    */
   centered?: boolean;
+  /**
+   * When true, the content is wrapped in a card surface (white bg, rounded corners,
+   * shadow) so it can be slotted into the card-stack as the active card itself —
+   * preserving the card-stack metaphor even when the user has finished their top
+   * requests (state B / C) and the More tier is still available.
+   */
+  cardMode?: boolean;
   className?: string;
 }
 
@@ -198,16 +205,30 @@ export function InboxTierEmptyState({
   onExploreMatches,
   hideViewAllCta = false,
   centered = false,
+  cardMode = false,
   className = '',
 }: InboxTierEmptyStateProps) {
   const { headline, subline } = COPY[copyVersion][variant];
 
+  // cardMode wraps the same content in a card surface (white bg, rounded corners,
+  // shadow). Replaces the default flat-page layout. Used as the active-card slot
+  // in the card-stack when Top is exhausted but More tier is available.
+  const wrapperClass = cardMode
+    ? `w-full h-full bg-white flex flex-col items-center justify-center text-center rounded-[16px] px-6 py-8 select-none ${className}`
+    : `w-full flex flex-col items-center text-center px-6 py-8 ${
+        centered ? 'flex-1 justify-center' : ''
+      } ${className}`;
+
+  const wrapperStyle: React.CSSProperties | undefined = cardMode
+    ? { boxShadow: '0px 4px 12px rgba(0,0,0,0.10), 0px 1px 6px rgba(0,0,0,0.06)' }
+    : undefined;
+
   return (
     <div
-      className={`w-full flex flex-col items-center text-center px-6 py-8 ${
-        centered ? 'flex-1 justify-center' : ''
-      } ${className}`}
+      className={wrapperClass}
+      style={wrapperStyle}
       data-inbox-empty-variant={variant}
+      data-inbox-empty-mode={cardMode ? 'card' : 'fullscreen'}
     >
       {variant === 'C' ? <ProfileDocIcon /> : <GreenCheckIcon />}
 

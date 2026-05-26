@@ -3256,15 +3256,46 @@ export default function App() {
                             onViewProfile={handleViewInboxProfile}
                             hasActiveFilters={false}
                           />
-                        ) : (
+                        ) : inboxResolvedState === 'D' ? (
+                          // D stays as a full-screen empty state — there are no
+                          // peeks behind to render (both pools exhausted) so the
+                          // card-stack metaphor doesn't apply.
                           <InboxTierEmptyState
-                            variant={inboxResolvedState as 'B' | 'C' | 'D'}
+                            variant="D"
                             copyVersion={inboxCopyVersion}
-                            moreCount={inboxMoreRemaining || 7}
-                            morePreviewAvatars={MOCK_INBOX_MORE_REQUESTS.slice(0, 3).map(r => r.profile.photos?.avatar || r.profile.imageUrl || r.profile.avatarUrl || '')}
+                            moreCount={0}
+                            morePreviewAvatars={[]}
                             onViewAll={handleInboxViewAllMore}
                             onExploreMatches={() => setActiveMainTab('matches')}
                             centered
+                          />
+                        ) : (
+                          // B and C live INSIDE the card stack as the active
+                          // card, with the More-tier profiles peeking behind.
+                          // Swiping the card off (or tapping View All) sets
+                          // viewAllTapped and the More tier becomes active.
+                          <InboxReceivedView
+                            requests={inboxMorePool}
+                            isCurrentUserPremium={isCurrentUserPremium}
+                            onAccept={handleInboxAccept}
+                            onDecline={handleInboxDecline}
+                            onViewProfile={handleViewInboxProfile}
+                            hasActiveFilters={false}
+                            activeCardOverride={{
+                              key: `tier-empty-${inboxResolvedState}-${inboxCopyVersion}`,
+                              onDismiss: () => handleInboxViewAllMore(),
+                              content: (
+                                <InboxTierEmptyState
+                                  variant={inboxResolvedState as 'B' | 'C'}
+                                  copyVersion={inboxCopyVersion}
+                                  moreCount={inboxMoreRemaining || 7}
+                                  morePreviewAvatars={MOCK_INBOX_MORE_REQUESTS.slice(0, 3).map(r => r.profile.photos?.avatar || r.profile.imageUrl || r.profile.avatarUrl || '')}
+                                  onViewAll={handleInboxViewAllMore}
+                                  onExploreMatches={() => setActiveMainTab('matches')}
+                                  cardMode
+                                />
+                              ),
+                            }}
                           />
                         )}
                       </div>

@@ -25,6 +25,21 @@ interface InboxReceivedViewProps {
   onClearFilters?: () => void;
   /** Optional fallback requests shown when there are zero matches. */
   fallbackRequests?: InboxRequest[];
+  /**
+   * Optional override for the active card. When provided, the active swipeable
+   * card slot renders `content` instead of an InboxCard from `requests[0]`.
+   * Used to slot a "you're all caught up" / "your top requests will appear here"
+   * card into the stack so the user can swipe it off to reveal the More-tier
+   * profiles already peeking behind it. The peek shells in this mode use
+   * `requests[0]` (back-1) and `requests[1]` (back-2) — i.e. the indices
+   * shift down by 1 since the active slot is no longer drawn from requests.
+   */
+  activeCardOverride?: {
+    content: React.ReactNode;
+    onDismiss: (dir: 'left' | 'right') => void;
+    /** Stable key so React doesn't remount on every render. */
+    key?: string;
+  };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -511,7 +526,8 @@ const ROTATION_PER_PX = 0.06;
 // ─────────────────────────────────────────────────────────────────────────────
 
 interface SwipeableCardProps {
-  request: InboxRequest;
+  /** Profile request — rendered as an InboxCard if no `children` are passed. */
+  request?: InboxRequest;
   isCurrentUserPremium: boolean;
   onDismissComplete: (dir: 'left' | 'right') => void;
   onTap?: () => void;
@@ -520,9 +536,16 @@ interface SwipeableCardProps {
    * to it via useTransform and slide forward continuously as the user swipes.
    */
   x: MotionValue<number>;
+  /**
+   * Optional custom content for the swipeable card. When provided, replaces the
+   * default InboxCard render — used for the "you're all caught up" / "your top
+   * requests will appear here" card-stack empty states so they participate in
+   * the same swipe interactions.
+   */
+  children?: React.ReactNode;
 }
 
-function SwipeableCard({ request, isCurrentUserPremium, onDismissComplete, onTap, x }: SwipeableCardProps) {
+function SwipeableCard({ request, isCurrentUserPremium, onDismissComplete, onTap, x, children }: SwipeableCardProps) {
   const isFlying = useRef(false);
 
   const rotate = useTransform(x, (v) => v * ROTATION_PER_PX);
@@ -588,15 +611,19 @@ function SwipeableCard({ request, isCurrentUserPremium, onDismissComplete, onTap
       // active mounts — a fade/scale entrance would visually "reload" the
       // same content the user was already seeing.
     >
-      <InboxCard
-        request={request}
-        isCurrentUserPremium={isCurrentUserPremium}
-        onAccept={handleAcceptBtn}
-        onDecline={handleDeclineBtn}
-        onTap={onTap}
-        acceptStampOpacity={acceptStampOpacity}
-        declineStampOpacity={declineStampOpacity}
-      />
+      {children ?? (
+        request && (
+          <InboxCard
+            request={request}
+            isCurrentUserPremium={isCurrentUserPremium}
+            onAccept={handleAcceptBtn}
+            onDecline={handleDeclineBtn}
+            onTap={onTap}
+            acceptStampOpacity={acceptStampOpacity}
+            declineStampOpacity={declineStampOpacity}
+          />
+        )
+      )}
     </motion.div>
   );
 }
@@ -614,6 +641,7 @@ export function InboxReceivedView({
   hasActiveFilters = false,
   onClearFilters,
   fallbackRequests,
+  activeCardOverride,
 }: InboxReceivedViewProps) {
   // No internal currentIndex needed — the parent filters out dismissed profiles,
   // so requests[0] is always the correct current card.
@@ -652,7 +680,20 @@ export function InboxReceivedView({
     [sourceRequests, onAccept, onDecline, swipeX]
   );
 
-  if (remaining <= 0) {
+  // Wraps the override's onDismiss so swipeX is reset on the way out, matching
+  // what handleDismissComplete does for the normal-flow active card.
+  const handleOverrideDismiss = useCallback(
+    (direction: 'left' | 'right') => {
+      activeCardOverride?.onDismiss(direction);
+      swipeX.set(0);
+    },
+    [activeCardOverride, swipeX]
+  );
+
+  // When an override is in play, we always render the card stack (the override
+  // is the active card, peeks come from `requests`). Skip the standalone empty
+  // state fallback below — that's only meant for the pure-empty case.
+  if (remaining <= 0 && !activeCardOverride) {
     return (
       <div className="flex flex-col items-center justify-center h-[60vh] text-center px-6">
         <div className="p-6 bg-[#f1f1f2] rounded-full mb-4">
@@ -718,36 +759,65 @@ export function InboxReceivedView({
             Keyed by the active profile id so each new active card brings a
             fresh pair of shells (they fade in instead of inheriting the
             previous frame's advanced transform). */}
-        {remaining > 2 && (
-          <StackedCardBack
-            key={`back-2-${currentRequest.profile.id}`}
-            depth={2}
-            swipeProgress={swipeProgress}
-            request={sourceRequests[2]}
-            isCurrentUserPremium={isCurrentUserPremium}
-          />
-        )}
-        {remaining > 1 && (
-          <StackedCardBack
-            key={`back-1-${currentRequest.profile.id}`}
-            depth={1}
-            swipeProgress={swipeProgress}
-            request={sourceRequests[1]}
-            isCurrentUserPremium={isCurrentUserPremium}
-          />
-        )}
+        {/* Peek indices shift when activeCardOverride is in play:
+            - Without override: active = sourceRequests[0], back-1 = [1], back-2 = [2]
+            - With override:    active = override.content,  back-1 = [0], back-2 = [1]
+            So we compute a peekStart offset and the visibility thresholds. */}
+        {(() => {
+          const peekStart = activeCardOverride ? 0 : 1;
+          const backTwoIdx = peekStart + 1;
+          const backOneIdx = peekStart;
+          const keyId = activeCardOverride
+            ? (activeCardOverride.key ?? 'empty-state-active')
+            : currentRequest?.profile.id;
+          return (
+            <>
+              {sourceRequests.length > backTwoIdx && (
+                <StackedCardBack
+                  key={`back-2-${keyId}`}
+                  depth={2}
+                  swipeProgress={swipeProgress}
+                  request={sourceRequests[backTwoIdx]}
+                  isCurrentUserPremium={isCurrentUserPremium}
+                />
+              )}
+              {sourceRequests.length > backOneIdx && (
+                <StackedCardBack
+                  key={`back-1-${keyId}`}
+                  depth={1}
+                  swipeProgress={swipeProgress}
+                  request={sourceRequests[backOneIdx]}
+                  isCurrentUserPremium={isCurrentUserPremium}
+                />
+              )}
+            </>
+          );
+        })()}
 
-        {/* Active card — re-mounted on each dismiss (key by profile id) so its
-            entrance animation plays. The drag motion value (swipeX) is owned
-            by the parent and passed in. */}
-        <SwipeableCard
-          key={currentRequest.profile.id}
-          request={currentRequest}
-          isCurrentUserPremium={isCurrentUserPremium}
-          onDismissComplete={handleDismissComplete}
-          onTap={() => onViewProfile?.(currentRequest.profile)}
-          x={swipeX}
-        />
+        {/* Active card — either the regular profile InboxCard, or the in-card
+            empty state when the parent passes activeCardOverride. In both cases
+            the SwipeableCard wrapper handles drag/swipe/dismiss the same way. */}
+        {activeCardOverride ? (
+          <SwipeableCard
+            key={activeCardOverride.key ?? 'empty-state-active'}
+            isCurrentUserPremium={isCurrentUserPremium}
+            onDismissComplete={handleOverrideDismiss}
+            x={swipeX}
+          >
+            {activeCardOverride.content}
+          </SwipeableCard>
+        ) : (
+          currentRequest && (
+            <SwipeableCard
+              key={currentRequest.profile.id}
+              request={currentRequest}
+              isCurrentUserPremium={isCurrentUserPremium}
+              onDismissComplete={handleDismissComplete}
+              onTap={() => onViewProfile?.(currentRequest.profile)}
+              x={swipeX}
+            />
+          )
+        )}
       </div>
     </div>
   );
