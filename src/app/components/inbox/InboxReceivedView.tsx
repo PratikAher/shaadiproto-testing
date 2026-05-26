@@ -412,20 +412,37 @@ InboxCard.displayName = 'InboxCard';
 // Stacked card shells — more visible, peeking from below
 // ─────────────────────────────────────────────────────────────────────────────
 
-// Tuned so depth-2's visible bottom edge clears depth-1's by a few px — gives
-// the stack a clear 3-card depth read (active + 2 peeks). Each deeper layer
-// scales down more AND offsets down more so the bottom edges step out.
+// Depth slot transforms — kept in one table so the entrance animation
+// (advance-forward) can reference the "previous" slot per depth.
+//   slot 1 → the closer peek behind the active card
+//   slot 2 → the further peek behind slot 1
+//   slot 3 → off-stage; used as the entrance origin for slot 2
+const SLOT: Record<1 | 2 | 3, { scale: number; y: number }> = {
+  1: { scale: 0.96, y: 6 },
+  2: { scale: 0.92, y: 24 },
+  3: { scale: 0.88, y: 42 },
+};
+
+// Animated peek shell. On mount it starts one slot deeper and springs into
+// its target slot — pairing with the new active card's entrance to produce
+// the "stack pulls forward" feel after a dismiss. Each shell is keyed by the
+// active profile.id at its mount site, so it re-mounts every dismiss.
 const StackedCardBack = ({ depth }: { depth: 1 | 2 }) => {
-  const scale = depth === 1 ? 0.96 : 0.92;
-  // translateY values are tuned against the stack container's pb-[16px] so
-  // each peek shows as a roughly even strip (~6px) below the layer in front.
-  const translateY = depth === 1 ? 6 : 24;
+  const target = SLOT[depth];
+  // Initial position = the slot one step deeper (so depth-1 starts at depth-2's
+  // spot, depth-2 starts at the off-stage "slot 3" spot).
+  const origin = SLOT[(depth + 1) as 2 | 3];
   return (
-    <div
+    <motion.div
       className="absolute inset-x-0 top-0 bottom-0 pointer-events-none"
-      style={{
-        transform: `translateY(${translateY}px) scale(${scale})`,
-        zIndex: -depth,
+      style={{ zIndex: -depth }}
+      initial={{ scale: origin.scale, y: origin.y }}
+      animate={{ scale: target.scale, y: target.y }}
+      transition={{
+        type: 'spring',
+        stiffness: 320,
+        damping: 30,
+        mass: 0.85,
       }}
     >
       <div
@@ -436,7 +453,7 @@ const StackedCardBack = ({ depth }: { depth: 1 | 2 }) => {
             : '0px 2px 6px rgba(0,0,0,0.05), 0px 0px 1px rgba(0,0,0,0.06)',
         }}
       />
-    </div>
+    </motion.div>
   );
 };
 
@@ -634,9 +651,15 @@ export function InboxReceivedView({
       )}
       {/* Stack container — bottom padding leaves room for the two peek strips */}
       <div className="relative w-full flex-1 flex flex-col pb-[16px]" style={{ isolation: 'isolate' }}>
-        {/* Stacked card shells — clearly visible behind */}
-        {remaining > 2 && <StackedCardBack depth={2} />}
-        {remaining > 1 && <StackedCardBack depth={1} />}
+        {/* Stacked card shells — re-keyed by the current active profile so the
+            entrance animation replays on every dismiss, producing the "stack
+            pulls forward" effect. */}
+        {remaining > 2 && (
+          <StackedCardBack key={`back-2-${currentRequest.profile.id}`} depth={2} />
+        )}
+        {remaining > 1 && (
+          <StackedCardBack key={`back-1-${currentRequest.profile.id}`} depth={1} />
+        )}
 
         {/* Active card */}
         <SwipeableCard
