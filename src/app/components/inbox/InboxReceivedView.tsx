@@ -469,11 +469,11 @@ const StackedCardBack = ({
     <motion.div
       className="absolute inset-x-0 top-0 bottom-0 pointer-events-none"
       style={{ zIndex: -depth, scale, y }}
-      // Brief fade-in so when a fresh depth-2 shell mounts (after the prior
-      // depth-2 has advanced into the depth-1 role), it doesn't pop in.
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ duration: 0.18, ease: 'easeOut' }}
+      // No mount-time opacity fade. The previous frame's OLD back-1 ended at
+      // the same visible pixel position as where this NEW shell mounts, so
+      // a fade-in would briefly blank out content the user was already seeing
+      // — reads as a "refresh flash" on every Accept/Decline. Continuous
+      // swipeProgress-driven transforms handle the visual continuity.
     >
       {request ? (
         <InboxCard
@@ -583,14 +583,10 @@ function SwipeableCard({ request, isCurrentUserPremium, onDismissComplete, onTap
       dragElastic={0.6}
       onDragEnd={handleDragEnd}
       whileDrag={{ cursor: 'grabbing' }}
-      initial={{ scale: 0.95, opacity: 0, y: 12 }}
-      animate={{ scale: 1, opacity: 1, y: 0 }}
-      transition={{
-        type: 'spring',
-        stiffness: 300,
-        damping: 28,
-        mass: 0.8,
-      }}
+      // No mount entrance. After a dismiss, the OLD back-1 ended at the exact
+      // same visible position (and showed the SAME profile) as where this new
+      // active mounts — a fade/scale entrance would visually "reload" the
+      // same content the user was already seeing.
     >
       <InboxCard
         request={request}
