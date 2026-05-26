@@ -412,15 +412,24 @@ InboxCard.displayName = 'InboxCard';
 // Stacked card shells — more visible, peeking from below
 // ─────────────────────────────────────────────────────────────────────────────
 
-// Depth slot transforms — kept in one table so we can interpolate between
-// "resting" and "advanced" positions per peek depth.
-//   slot 0 → where the active card lives (used as the "advanced" target for depth-1)
-//   slot 1 → the closer peek behind the active card
-//   slot 2 → the further peek behind slot 1
+// Depth slot transforms — tuned so the VISIBLE BOTTOM EDGE of each layer sits
+// on a clean staircase, regardless of scale. With center-origin scaling on a
+// shell that fills the stack container (height H), bottom = ((1+s)/2)·H + y.
+// The stack container has pb-[16px] so the active card's flex bottom is at
+// H-16. Each peek behind sits 6px lower than the layer in front.
+//
+// With H≈600 (typical mobile viewport-minus-chrome), the numbers below give:
+//   slot 0 (active size)  → bottom ≈ H-16 (matches active card's flex bottom)
+//   slot 1 (back-1)        → bottom ≈ H-10 (6px below active = visible peek)
+//   slot 2 (back-2)        → bottom ≈ H-4  (6px below back-1 = visible peek)
+//
+// The key property: each step keeps the SAME 6px gap. So as back-1 morphs
+// toward slot 0 and back-2 morphs toward slot 1, both bottoms move up by
+// exactly 6px in lockstep — peek strips stay constant, no apparent shrinking.
 const SLOT: Record<0 | 1 | 2, { scale: number; y: number }> = {
-  0: { scale: 1, y: 0 },
-  1: { scale: 0.96, y: 6 },
-  2: { scale: 0.92, y: 24 },
+  0: { scale: 1,    y: -16 },
+  1: { scale: 0.96, y: 2 },
+  2: { scale: 0.92, y: 20 },
 };
 
 // Animated peek shell. Subscribes to a shared swipeProgress MotionValue
