@@ -441,17 +441,30 @@ const SLOT: Record<0 | 1 | 2, { scale: number; y: number }> = {
 // step forward. This couples the back-card motion to the active card's
 // drag in real time — no remount-pop, no pause between fly-off and
 // stack-advance.
+//
+// If a `request` is provided, the shell renders the real InboxCard with that
+// profile's content (so the user sees the next profile peeking behind the
+// active card and can recognise it before they finish swiping). Otherwise
+// falls back to an empty white shell (used as a graceful placeholder when
+// the pool doesn't have a next-next-next request to preview).
 const StackedCardBack = ({
   depth,
   swipeProgress,
+  request,
+  isCurrentUserPremium,
 }: {
   depth: 1 | 2;
   swipeProgress: MotionValue<number>;
+  request?: InboxRequest;
+  isCurrentUserPremium?: boolean;
 }) => {
   const resting = SLOT[depth];
   const advanced = SLOT[(depth - 1) as 0 | 1];
   const scale = useTransform(swipeProgress, [0, 1], [resting.scale, advanced.scale]);
   const y = useTransform(swipeProgress, [0, 1], [resting.y, advanced.y]);
+  // No-op handlers — the wrapper has pointer-events-none so taps never reach
+  // these, but the props are required by InboxCard's type signature.
+  const noop = () => undefined;
   return (
     <motion.div
       className="absolute inset-x-0 top-0 bottom-0 pointer-events-none"
@@ -462,14 +475,24 @@ const StackedCardBack = ({
       animate={{ opacity: 1 }}
       transition={{ duration: 0.18, ease: 'easeOut' }}
     >
-      <div
-        className="bg-white rounded-[16px] h-full w-full"
-        style={{
-          boxShadow: depth === 1
-            ? '0px 2px 8px rgba(0,0,0,0.07), 0px 0px 1px rgba(0,0,0,0.08)'
-            : '0px 2px 6px rgba(0,0,0,0.05), 0px 0px 1px rgba(0,0,0,0.06)',
-        }}
-      />
+      {request ? (
+        <InboxCard
+          request={request}
+          isCurrentUserPremium={!!isCurrentUserPremium}
+          onAccept={noop}
+          onDecline={noop}
+          onTap={noop}
+        />
+      ) : (
+        <div
+          className="bg-white rounded-[16px] h-full w-full"
+          style={{
+            boxShadow: depth === 1
+              ? '0px 2px 8px rgba(0,0,0,0.07), 0px 0px 1px rgba(0,0,0,0.08)'
+              : '0px 2px 6px rgba(0,0,0,0.05), 0px 0px 1px rgba(0,0,0,0.06)',
+          }}
+        />
+      )}
     </motion.div>
   );
 };
@@ -693,15 +716,19 @@ export function InboxReceivedView({
           visually identical to the active card with no over-grow on advance. */}
       <div className="relative w-full flex-1 flex flex-col" style={{ isolation: 'isolate' }}>
         {/* Stacked card shells — transforms driven continuously by swipeProgress
-            so they slide forward in real time as the user drags. Keyed by the
-            active profile id so each new active card brings a fresh pair of
-            shells (they fade in instead of inheriting the previous frame's
-            advanced transform). */}
+            so they slide forward in real time as the user drags. Each shell
+            now renders the NEXT-in-line request so the user sees profile
+            previews peeking behind the active card (not just empty shells).
+            Keyed by the active profile id so each new active card brings a
+            fresh pair of shells (they fade in instead of inheriting the
+            previous frame's advanced transform). */}
         {remaining > 2 && (
           <StackedCardBack
             key={`back-2-${currentRequest.profile.id}`}
             depth={2}
             swipeProgress={swipeProgress}
+            request={sourceRequests[2]}
+            isCurrentUserPremium={isCurrentUserPremium}
           />
         )}
         {remaining > 1 && (
@@ -709,6 +736,8 @@ export function InboxReceivedView({
             key={`back-1-${currentRequest.profile.id}`}
             depth={1}
             swipeProgress={swipeProgress}
+            request={sourceRequests[1]}
+            isCurrentUserPremium={isCurrentUserPremium}
           />
         )}
 
