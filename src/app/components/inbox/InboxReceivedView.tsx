@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useRef } from 'react';
-import { motion, useMotionValue, useTransform, animate, type PanInfo } from 'motion/react';
+import { motion, useMotionValue, useTransform, animate, type MotionValue, type PanInfo } from 'motion/react';
 import type { Profile } from '../matches/ProfileCard';
 import svgPaths from '../../../imports/svg-73td7n7p03';
 
@@ -412,38 +412,43 @@ InboxCard.displayName = 'InboxCard';
 // Stacked card shells — more visible, peeking from below
 // ─────────────────────────────────────────────────────────────────────────────
 
-// Depth slot transforms — kept in one table so the entrance animation
-// (advance-forward) can reference the "previous" slot per depth.
+// Depth slot transforms — kept in one table so we can interpolate between
+// "resting" and "advanced" positions per peek depth.
+//   slot 0 → where the active card lives (used as the "advanced" target for depth-1)
 //   slot 1 → the closer peek behind the active card
 //   slot 2 → the further peek behind slot 1
-//   slot 3 → off-stage; used as the entrance origin for slot 2
-const SLOT: Record<1 | 2 | 3, { scale: number; y: number }> = {
+const SLOT: Record<0 | 1 | 2, { scale: number; y: number }> = {
+  0: { scale: 1, y: 0 },
   1: { scale: 0.96, y: 6 },
   2: { scale: 0.92, y: 24 },
-  3: { scale: 0.88, y: 42 },
 };
 
-// Animated peek shell. On mount it starts one slot deeper and springs into
-// its target slot — pairing with the new active card's entrance to produce
-// the "stack pulls forward" feel after a dismiss. Each shell is keyed by the
-// active profile.id at its mount site, so it re-mounts every dismiss.
-const StackedCardBack = ({ depth }: { depth: 1 | 2 }) => {
-  const target = SLOT[depth];
-  // Initial position = the slot one step deeper (so depth-1 starts at depth-2's
-  // spot, depth-2 starts at the off-stage "slot 3" spot).
-  const origin = SLOT[(depth + 1) as 2 | 3];
+// Animated peek shell. Subscribes to a shared swipeProgress MotionValue
+// (0 = resting, 1 = active card fully swiped off) and interpolates its
+// transform continuously between its current slot and the slot one
+// step forward. This couples the back-card motion to the active card's
+// drag in real time — no remount-pop, no pause between fly-off and
+// stack-advance.
+const StackedCardBack = ({
+  depth,
+  swipeProgress,
+}: {
+  depth: 1 | 2;
+  swipeProgress: MotionValue<number>;
+}) => {
+  const resting = SLOT[depth];
+  const advanced = SLOT[(depth - 1) as 0 | 1];
+  const scale = useTransform(swipeProgress, [0, 1], [resting.scale, advanced.scale]);
+  const y = useTransform(swipeProgress, [0, 1], [resting.y, advanced.y]);
   return (
     <motion.div
       className="absolute inset-x-0 top-0 bottom-0 pointer-events-none"
-      style={{ zIndex: -depth }}
-      initial={{ scale: origin.scale, y: origin.y }}
-      animate={{ scale: target.scale, y: target.y }}
-      transition={{
-        type: 'spring',
-        stiffness: 320,
-        damping: 30,
-        mass: 0.85,
-      }}
+      style={{ zIndex: -depth, scale, y }}
+      // Brief fade-in so when a fresh depth-2 shell mounts (after the prior
+      // depth-2 has advanced into the depth-1 role), it doesn't pop in.
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.18, ease: 'easeOut' }}
     >
       <div
         className="bg-white rounded-[16px] h-full w-full"
@@ -475,10 +480,14 @@ interface SwipeableCardProps {
   isCurrentUserPremium: boolean;
   onDismissComplete: (dir: 'left' | 'right') => void;
   onTap?: () => void;
+  /**
+   * Parent-owned drag MotionValue. Hoisted so the back-card peeks can subscribe
+   * to it via useTransform and slide forward continuously as the user swipes.
+   */
+  x: MotionValue<number>;
 }
 
-function SwipeableCard({ request, isCurrentUserPremium, onDismissComplete, onTap }: SwipeableCardProps) {
-  const x = useMotionValue(0);
+function SwipeableCard({ request, isCurrentUserPremium, onDismissComplete, onTap, x }: SwipeableCardProps) {
   const isFlying = useRef(false);
 
   const rotate = useTransform(x, (v) => v * ROTATION_PER_PX);
@@ -581,6 +590,20 @@ export function InboxReceivedView({
   const sourceRequests = showingFallback ? (fallbackRequests as InboxRequest[]) : requests;
   const remaining = sourceRequests.length;
 
+  // ── Shared drag motion value ─────────────────────────────────────────
+  // Parent-owned so the back-card peeks can subscribe to it via useTransform
+  // and slide forward continuously as the user drags the active card. The
+  // value is reset to 0 inside handleDismissComplete after each card
+  // resolves, so the next active card starts fresh.
+  const swipeX = useMotionValue(0);
+  // Progress = 0 at rest, 1 at full fly-off distance in either direction.
+  // Symmetric mapping (negative or positive drag both advance the stack).
+  const swipeProgress = useTransform(
+    swipeX,
+    [-FLY_OFF_DISTANCE, 0, FLY_OFF_DISTANCE],
+    [1, 0, 1],
+  );
+
   const handleDismissComplete = useCallback(
     (direction: 'left' | 'right') => {
       const req = sourceRequests[0];
@@ -590,9 +613,12 @@ export function InboxReceivedView({
       } else {
         onDecline?.(req.profile);
       }
-      // No index increment needed — parent removes dismissed profile from requests array
+      // Snap swipeX back to 0 for the next card. Use set() not animate() —
+      // we want an instantaneous reset (the next card's SwipeableCard
+      // remount + entrance handles its own fade-in from depth-1 slot).
+      swipeX.set(0);
     },
-    [sourceRequests, onAccept, onDecline]
+    [sourceRequests, onAccept, onDecline, swipeX]
   );
 
   if (remaining <= 0) {
@@ -651,23 +677,36 @@ export function InboxReceivedView({
       )}
       {/* Stack container — bottom padding leaves room for the two peek strips */}
       <div className="relative w-full flex-1 flex flex-col pb-[16px]" style={{ isolation: 'isolate' }}>
-        {/* Stacked card shells — re-keyed by the current active profile so the
-            entrance animation replays on every dismiss, producing the "stack
-            pulls forward" effect. */}
+        {/* Stacked card shells — transforms driven continuously by swipeProgress
+            so they slide forward in real time as the user drags. Keyed by the
+            active profile id so each new active card brings a fresh pair of
+            shells (they fade in instead of inheriting the previous frame's
+            advanced transform). */}
         {remaining > 2 && (
-          <StackedCardBack key={`back-2-${currentRequest.profile.id}`} depth={2} />
+          <StackedCardBack
+            key={`back-2-${currentRequest.profile.id}`}
+            depth={2}
+            swipeProgress={swipeProgress}
+          />
         )}
         {remaining > 1 && (
-          <StackedCardBack key={`back-1-${currentRequest.profile.id}`} depth={1} />
+          <StackedCardBack
+            key={`back-1-${currentRequest.profile.id}`}
+            depth={1}
+            swipeProgress={swipeProgress}
+          />
         )}
 
-        {/* Active card */}
+        {/* Active card — re-mounted on each dismiss (key by profile id) so its
+            entrance animation plays. The drag motion value (swipeX) is owned
+            by the parent and passed in. */}
         <SwipeableCard
           key={currentRequest.profile.id}
           request={currentRequest}
           isCurrentUserPremium={isCurrentUserPremium}
           onDismissComplete={handleDismissComplete}
           onTap={() => onViewProfile?.(currentRequest.profile)}
+          x={swipeX}
         />
       </div>
     </div>
