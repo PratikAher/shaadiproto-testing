@@ -51,6 +51,14 @@ interface InboxReceivedViewProps {
     /** Stable key so React doesn't remount across re-renders. */
     key?: string;
   };
+  /**
+   * Optional list of profiles that come AFTER the tail card in the conceptual
+   * queue. When the user has only 1 Top profile left, the queue reads:
+   *   [Mrunal (active), tailCard (peek-1), afterTailRequests[0] (peek-2)]
+   * So the user sees a real More-tier profile already peeking behind the
+   * tail-card B state, completing the 3-card depth read.
+   */
+  afterTailRequests?: InboxRequest[];
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -670,6 +678,7 @@ export function InboxReceivedView({
   fallbackRequests,
   activeCardOverride,
   tailCard,
+  afterTailRequests,
 }: InboxReceivedViewProps) {
   // No internal currentIndex needed — the parent filters out dismissed profiles,
   // so requests[0] is always the correct current card.
@@ -789,24 +798,35 @@ export function InboxReceivedView({
             previous frame's advanced transform). */}
         {/* Peek slot resolution.
             Conceptual queue:
-              [activeCardOverride? , ...sourceRequests, tailCard?]
+              [activeCardOverride?, ...sourceRequests, tailCard?, ...afterTailRequests]
             For each visible peek slot (back-2 = deepest, back-1 = closer),
             resolve to either a Profile peek, the tailCard peek, or nothing.
             Indices shift down by 1 when activeCardOverride is present. */}
         {(() => {
           const peekStart = activeCardOverride ? 0 : 1;
-          const backTwoIdx = peekStart + 1; // profile index in sourceRequests for back-2 slot
-          const backOneIdx = peekStart;     // profile index for back-1 slot
+          const backTwoIdx = peekStart + 1; // queue position for back-2 slot
+          const backOneIdx = peekStart;     // queue position for back-1 slot
           const keyId = activeCardOverride
             ? (activeCardOverride.key ?? 'empty-state-active')
             : currentRequest?.profile.id;
           const tailIdx = sourceRequests.length; // queue position of tail card
           const tailKey = tailCard?.key ?? 'tail-card';
 
-          // Resolve each slot to one of: 'profile', 'tail', null
+          // Resolve each slot to one of: 'profile', 'tail', null.
+          //   - queue 0..sourceRequests.length-1 → profile from sourceRequests
+          //   - queue sourceRequests.length → tail card (if present)
+          //   - queue beyond tail card → profile from afterTailRequests
           const resolveSlot = (queueIdx: number) => {
-            if (queueIdx < sourceRequests.length) return { type: 'profile' as const, request: sourceRequests[queueIdx] };
-            if (tailCard && queueIdx === tailIdx) return { type: 'tail' as const };
+            if (queueIdx < sourceRequests.length) {
+              return { type: 'profile' as const, request: sourceRequests[queueIdx] };
+            }
+            if (tailCard && queueIdx === tailIdx) {
+              return { type: 'tail' as const };
+            }
+            const afterTailIdx = queueIdx - tailIdx - (tailCard ? 1 : 0);
+            if (afterTailIdx >= 0 && afterTailIdx < (afterTailRequests?.length ?? 0)) {
+              return { type: 'profile' as const, request: afterTailRequests![afterTailIdx] };
+            }
             return null;
           };
 

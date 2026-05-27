@@ -3297,6 +3297,18 @@ export default function App() {
                                     }
                                   : undefined
                               }
+                              /*
+                               * Profiles that come AFTER the tail card in the
+                               * conceptual queue. When Top drops to 1, the user
+                               * sees: [Top profile (active), tail card (peek-1),
+                               * morePool[0] (peek-2)] — completing the 3-card
+                               * depth read.
+                               */
+                              afterTailRequests={
+                                !inboxViewAllTapped && inboxMoreRemaining > 0
+                                  ? inboxMorePool
+                                  : undefined
+                              }
                             />
                           ) : inboxResolvedState === 'E' ? (
                             <InboxReceivedView
