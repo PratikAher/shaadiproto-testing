@@ -3231,73 +3231,115 @@ export default function App() {
 
                     {/* Content: Card view (swipe) or List view */}
                     {inboxViewMode === 'card' ? (
-                      <div className="flex-1 flex flex-col overflow-y-auto overflow-x-hidden scrollbar-hide pb-[16px]" onScroll={handleInboxContentScroll}>
-                        {inboxResolvedState === 'A' ? (
-                          <InboxReceivedView
-                            requests={inboxActivePool}
-                            isCurrentUserPremium={isCurrentUserPremium}
-                            onAccept={handleInboxAccept}
-                            onDecline={handleInboxDecline}
-                            onViewProfile={handleViewInboxProfile}
-                            hasActiveFilters={inboxActiveFilterCount > 0}
-                            onClearFilters={() => setInboxFilters(PARTNER_PREFERENCE_BASELINE_FILTERS)}
-                            fallbackRequests={
-                              inboxActiveFilterCount > 0 && inboxActivePool.length === 0
-                                ? inboxSortedOtherRequests
-                                : undefined
-                            }
-                          />
-                        ) : inboxResolvedState === 'E' ? (
-                          <InboxReceivedView
-                            requests={[]}
-                            isCurrentUserPremium={isCurrentUserPremium}
-                            onAccept={handleInboxAccept}
-                            onDecline={handleInboxDecline}
-                            onViewProfile={handleViewInboxProfile}
-                            hasActiveFilters={false}
-                          />
-                        ) : inboxResolvedState === 'D' ? (
-                          // D stays as a full-screen empty state — there are no
-                          // peeks behind to render (both pools exhausted) so the
-                          // card-stack metaphor doesn't apply.
-                          <InboxTierEmptyState
-                            variant="D"
-                            copyVersion={inboxCopyVersion}
-                            moreCount={0}
-                            morePreviewAvatars={[]}
-                            onViewAll={handleInboxViewAllMore}
-                            onExploreMatches={() => setActiveMainTab('matches')}
-                            centered
-                          />
-                        ) : (
-                          // B and C live INSIDE the card stack as the active
-                          // card, with the More-tier profiles peeking behind.
-                          // Swiping the card off (or tapping View All) sets
-                          // viewAllTapped and the More tier becomes active.
-                          <InboxReceivedView
-                            requests={inboxMorePool}
-                            isCurrentUserPremium={isCurrentUserPremium}
-                            onAccept={handleInboxAccept}
-                            onDecline={handleInboxDecline}
-                            onViewProfile={handleViewInboxProfile}
-                            hasActiveFilters={false}
-                            activeCardOverride={{
-                              key: `tier-empty-${inboxResolvedState}-${inboxCopyVersion}`,
-                              onDismiss: () => handleInboxViewAllMore(),
-                              content: (
-                                <InboxTierEmptyState
-                                  variant={inboxResolvedState as 'B' | 'C'}
-                                  copyVersion={inboxCopyVersion}
-                                  moreCount={inboxMoreRemaining || 7}
-                                  morePreviewAvatars={MOCK_INBOX_MORE_REQUESTS.slice(0, 3).map(r => r.profile.photos?.avatar || r.profile.imageUrl || r.profile.avatarUrl || '')}
-                                  onViewAll={handleInboxViewAllMore}
-                                  onExploreMatches={() => setActiveMainTab('matches')}
-                                  cardMode
-                                />
-                              ),
-                            }}
-                          />
+                      <div className="flex-1 flex flex-col overflow-y-auto overflow-x-hidden scrollbar-hide pb-[16px] relative" onScroll={handleInboxContentScroll}>
+                        {/*
+                          State D backdrop — flat layer ALWAYS present behind the
+                          card stack (except in state E). Sits in z-0 so the
+                          card stack on top covers it while cards exist; as the
+                          user swipes through cards, more of it becomes visible.
+                          When the user reaches true state D (both pools empty),
+                          this backdrop is fully visible — no advance animation
+                          needed because it was always there.
+                        */}
+                        {inboxResolvedState !== 'E' && (
+                          <div className="absolute inset-0 z-0 flex flex-col items-center justify-center pointer-events-auto">
+                            <InboxTierEmptyState
+                              variant="D"
+                              copyVersion={inboxCopyVersion}
+                              moreCount={0}
+                              morePreviewAvatars={[]}
+                              onViewAll={handleInboxViewAllMore}
+                              onExploreMatches={() => setActiveMainTab('matches')}
+                              centered
+                            />
+                          </div>
                         )}
+
+                        {/* Card stack sits above the D backdrop in z-10. */}
+                        <div className="relative z-10 flex-1 flex flex-col">
+                          {inboxResolvedState === 'A' ? (
+                            <InboxReceivedView
+                              requests={inboxActivePool}
+                              isCurrentUserPremium={isCurrentUserPremium}
+                              onAccept={handleInboxAccept}
+                              onDecline={handleInboxDecline}
+                              onViewProfile={handleViewInboxProfile}
+                              hasActiveFilters={inboxActiveFilterCount > 0}
+                              onClearFilters={() => setInboxFilters(PARTNER_PREFERENCE_BASELINE_FILTERS)}
+                              fallbackRequests={
+                                inboxActiveFilterCount > 0 && inboxActivePool.length === 0
+                                  ? inboxSortedOtherRequests
+                                  : undefined
+                              }
+                              /*
+                               * Tail card — when the user is still on the Top
+                               * pool (i.e. not yet tapped View All) AND there's
+                               * a More tier waiting, slot the in-card B state
+                               * as the deepest peek so it's visible behind the
+                               * last Top profile. When More is empty, no tail
+                               * card is needed — the D backdrop handles it.
+                               */
+                              tailCard={
+                                !inboxViewAllTapped && inboxMoreRemaining > 0
+                                  ? {
+                                      key: `tail-B-${inboxCopyVersion}`,
+                                      content: (
+                                        <InboxTierEmptyState
+                                          variant="B"
+                                          copyVersion={inboxCopyVersion}
+                                          moreCount={inboxMoreRemaining || 7}
+                                          morePreviewAvatars={MOCK_INBOX_MORE_REQUESTS.slice(0, 3).map(r => r.profile.photos?.avatar || r.profile.imageUrl || r.profile.avatarUrl || '')}
+                                          onViewAll={handleInboxViewAllMore}
+                                          onExploreMatches={() => setActiveMainTab('matches')}
+                                          cardMode
+                                        />
+                                      ),
+                                    }
+                                  : undefined
+                              }
+                            />
+                          ) : inboxResolvedState === 'E' ? (
+                            <InboxReceivedView
+                              requests={[]}
+                              isCurrentUserPremium={isCurrentUserPremium}
+                              onAccept={handleInboxAccept}
+                              onDecline={handleInboxDecline}
+                              onViewProfile={handleViewInboxProfile}
+                              hasActiveFilters={false}
+                            />
+                          ) : inboxResolvedState === 'D' ? (
+                            // True state D — no cards to render. The flat
+                            // backdrop above (rendered always when state !== 'E')
+                            // is now fully visible with the Explore Matches button.
+                            null
+                          ) : (
+                            // B and C — empty state lives INSIDE the card stack
+                            // as the active card; More-tier profiles peek behind.
+                            <InboxReceivedView
+                              requests={inboxMorePool}
+                              isCurrentUserPremium={isCurrentUserPremium}
+                              onAccept={handleInboxAccept}
+                              onDecline={handleInboxDecline}
+                              onViewProfile={handleViewInboxProfile}
+                              hasActiveFilters={false}
+                              activeCardOverride={{
+                                key: `tier-empty-${inboxResolvedState}-${inboxCopyVersion}`,
+                                onDismiss: () => handleInboxViewAllMore(),
+                                content: (
+                                  <InboxTierEmptyState
+                                    variant={inboxResolvedState as 'B' | 'C'}
+                                    copyVersion={inboxCopyVersion}
+                                    moreCount={inboxMoreRemaining || 7}
+                                    morePreviewAvatars={MOCK_INBOX_MORE_REQUESTS.slice(0, 3).map(r => r.profile.photos?.avatar || r.profile.imageUrl || r.profile.avatarUrl || '')}
+                                    onViewAll={handleInboxViewAllMore}
+                                    onExploreMatches={() => setActiveMainTab('matches')}
+                                    cardMode
+                                  />
+                                ),
+                              }}
+                            />
+                          )}
+                        </div>
                       </div>
                     ) : (
                       <div className="flex-1 flex flex-col overflow-y-auto overflow-x-hidden scrollbar-hide pb-[16px]" onScroll={handleInboxContentScroll}>

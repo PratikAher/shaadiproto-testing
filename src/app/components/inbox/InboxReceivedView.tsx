@@ -40,6 +40,17 @@ interface InboxReceivedViewProps {
     /** Stable key so React doesn't remount on every render. */
     key?: string;
   };
+  /**
+   * A "tail card" inserted at the END of the regular requests queue. When the
+   * user is approaching the end of the requests pool and one of the visible
+   * peek slots would otherwise be empty, this card fills that slot instead.
+   * Used for the in-card B state peeking behind the last Top profile.
+   */
+  tailCard?: {
+    content: React.ReactNode;
+    /** Stable key so React doesn't remount across re-renders. */
+    key?: string;
+  };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -467,11 +478,18 @@ const StackedCardBack = ({
   swipeProgress,
   request,
   isCurrentUserPremium,
+  children,
 }: {
   depth: 1 | 2;
   swipeProgress: MotionValue<number>;
   request?: InboxRequest;
   isCurrentUserPremium?: boolean;
+  /**
+   * Custom content for the peek shell. When provided, replaces the default
+   * InboxCard render — used for the "you've viewed all your top requests"
+   * tail card that peeks behind the last Top profile.
+   */
+  children?: React.ReactNode;
 }) => {
   const resting = SLOT[depth];
   const advanced = SLOT[(depth - 1) as 0 | 1];
@@ -490,7 +508,9 @@ const StackedCardBack = ({
       // — reads as a "refresh flash" on every Accept/Decline. Continuous
       // swipeProgress-driven transforms handle the visual continuity.
     >
-      {request ? (
+      {children ? (
+        children
+      ) : request ? (
         <InboxCard
           request={request}
           isCurrentUserPremium={!!isCurrentUserPremium}
@@ -649,6 +669,7 @@ export function InboxReceivedView({
   onClearFilters,
   fallbackRequests,
   activeCardOverride,
+  tailCard,
 }: InboxReceivedViewProps) {
   // No internal currentIndex needed — the parent filters out dismissed profiles,
   // so requests[0] is always the correct current card.
@@ -766,36 +787,71 @@ export function InboxReceivedView({
             Keyed by the active profile id so each new active card brings a
             fresh pair of shells (they fade in instead of inheriting the
             previous frame's advanced transform). */}
-        {/* Peek indices shift when activeCardOverride is in play:
-            - Without override: active = sourceRequests[0], back-1 = [1], back-2 = [2]
-            - With override:    active = override.content,  back-1 = [0], back-2 = [1]
-            So we compute a peekStart offset and the visibility thresholds. */}
+        {/* Peek slot resolution.
+            Conceptual queue:
+              [activeCardOverride? , ...sourceRequests, tailCard?]
+            For each visible peek slot (back-2 = deepest, back-1 = closer),
+            resolve to either a Profile peek, the tailCard peek, or nothing.
+            Indices shift down by 1 when activeCardOverride is present. */}
         {(() => {
           const peekStart = activeCardOverride ? 0 : 1;
-          const backTwoIdx = peekStart + 1;
-          const backOneIdx = peekStart;
+          const backTwoIdx = peekStart + 1; // profile index in sourceRequests for back-2 slot
+          const backOneIdx = peekStart;     // profile index for back-1 slot
           const keyId = activeCardOverride
             ? (activeCardOverride.key ?? 'empty-state-active')
             : currentRequest?.profile.id;
+          const tailIdx = sourceRequests.length; // queue position of tail card
+          const tailKey = tailCard?.key ?? 'tail-card';
+
+          // Resolve each slot to one of: 'profile', 'tail', null
+          const resolveSlot = (queueIdx: number) => {
+            if (queueIdx < sourceRequests.length) return { type: 'profile' as const, request: sourceRequests[queueIdx] };
+            if (tailCard && queueIdx === tailIdx) return { type: 'tail' as const };
+            return null;
+          };
+
+          const backTwo = resolveSlot(backTwoIdx);
+          const backOne = resolveSlot(backOneIdx);
+
           return (
             <>
-              {sourceRequests.length > backTwoIdx && (
-                <StackedCardBack
-                  key={`back-2-${keyId}`}
-                  depth={2}
-                  swipeProgress={swipeProgress}
-                  request={sourceRequests[backTwoIdx]}
-                  isCurrentUserPremium={isCurrentUserPremium}
-                />
+              {backTwo && (
+                backTwo.type === 'profile' ? (
+                  <StackedCardBack
+                    key={`back-2-${keyId}`}
+                    depth={2}
+                    swipeProgress={swipeProgress}
+                    request={backTwo.request}
+                    isCurrentUserPremium={isCurrentUserPremium}
+                  />
+                ) : (
+                  <StackedCardBack
+                    key={`back-2-tail-${tailKey}`}
+                    depth={2}
+                    swipeProgress={swipeProgress}
+                  >
+                    {tailCard!.content}
+                  </StackedCardBack>
+                )
               )}
-              {sourceRequests.length > backOneIdx && (
-                <StackedCardBack
-                  key={`back-1-${keyId}`}
-                  depth={1}
-                  swipeProgress={swipeProgress}
-                  request={sourceRequests[backOneIdx]}
-                  isCurrentUserPremium={isCurrentUserPremium}
-                />
+              {backOne && (
+                backOne.type === 'profile' ? (
+                  <StackedCardBack
+                    key={`back-1-${keyId}`}
+                    depth={1}
+                    swipeProgress={swipeProgress}
+                    request={backOne.request}
+                    isCurrentUserPremium={isCurrentUserPremium}
+                  />
+                ) : (
+                  <StackedCardBack
+                    key={`back-1-tail-${tailKey}`}
+                    depth={1}
+                    swipeProgress={swipeProgress}
+                  >
+                    {tailCard!.content}
+                  </StackedCardBack>
+                )
               )}
             </>
           );
