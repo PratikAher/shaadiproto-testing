@@ -543,9 +543,16 @@ interface SwipeableCardProps {
    * the same swipe interactions.
    */
   children?: React.ReactNode;
+  /**
+   * When true, drag gestures are fully disabled (left/right swipes do nothing).
+   * Used for the in-card empty state (B / C) where only the View All tap
+   * dismisses the card. The motion.div still respects the parent-owned x value
+   * but won't react to user pointer drag.
+   */
+  dragDisabled?: boolean;
 }
 
-function SwipeableCard({ request, isCurrentUserPremium, onDismissComplete, onTap, x, children }: SwipeableCardProps) {
+function SwipeableCard({ request, isCurrentUserPremium, onDismissComplete, onTap, x, children, dragDisabled = false }: SwipeableCardProps) {
   const isFlying = useRef(false);
 
   const rotate = useTransform(x, (v) => v * ROTATION_PER_PX);
@@ -598,14 +605,14 @@ function SwipeableCard({ request, isCurrentUserPremium, onDismissComplete, onTap
         rotate,
         transformOrigin: 'center 85%',
         touchAction: 'pan-y',
-        cursor: 'grab',
+        cursor: dragDisabled ? 'default' : 'grab',
         willChange: 'transform',
       }}
-      drag="x"
+      drag={dragDisabled ? false : 'x'}
       dragConstraints={{ left: 0, right: 0 }}
       dragElastic={0.6}
-      onDragEnd={handleDragEnd}
-      whileDrag={{ cursor: 'grabbing' }}
+      onDragEnd={dragDisabled ? undefined : handleDragEnd}
+      whileDrag={dragDisabled ? undefined : { cursor: 'grabbing' }}
       // No mount entrance. After a dismiss, the OLD back-1 ended at the exact
       // same visible position (and showed the SAME profile) as where this new
       // active mounts — a fade/scale entrance would visually "reload" the
@@ -803,6 +810,10 @@ export function InboxReceivedView({
             isCurrentUserPremium={isCurrentUserPremium}
             onDismissComplete={handleOverrideDismiss}
             x={swipeX}
+            // Empty-state card (B / C) is dismiss-by-click only — the only
+            // valid action is tapping the View All pill (or Explore Matches).
+            // Disabling drag prevents accidental left/right swipes.
+            dragDisabled
           >
             {activeCardOverride.content}
           </SwipeableCard>
